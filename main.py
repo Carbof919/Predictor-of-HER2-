@@ -33,9 +33,27 @@ if uploaded_file:
         if not common_genes:
             st.error("None of the required genes are present in the uploaded file.")
         else:
+            # 👇 New: show genes used for prediction
+            st.write("🧬 Genes used in prediction:")
+            st.write(common_genes)
+
             input_data = user_df[common_genes]
             preds = model.predict(input_data)
             st.success("Prediction complete!")
-            st.write("Predictions:", preds.tolist())
+
+            # 👇 New: display results as labeled dataframe
+            result_df = pd.DataFrame({
+                "Sample ID": user_df.index,
+                "Prediction": ["Sensitive" if p == 1 else "Resistant" for p in preds]
+            })
+            st.write(result_df)
+
+            # 👇 New: download button for results
+            csv = result_df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Predictions", csv, "predictions.csv", "text/csv")
+            
+            # 👇 Original: raw predictions as list
+            st.write("Raw Predictions:", preds.tolist())
+
     except Exception as e:
         st.error(f"An error occurred: {e}")
