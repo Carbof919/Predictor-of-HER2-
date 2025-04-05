@@ -21,7 +21,7 @@ if uploaded_file:
 
     try:
         model_path = f"models/{drug}_model.pkl"
-        feature_path = "models/features.pkl"
+        feature_path = "models/feature_names.pkl"
 
         with open(model_path, "rb") as f:
             model = pickle.load(f)
