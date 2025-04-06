@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 import os
 
-st.title("Drug Resistance Predictor")
+st.title("Drug Resistance Predictor of HER2+ BRCA")
 st.write("Upload your gene expression file and select a drug to predict resistance.")
 
 # Dropdown with multiple drugs
@@ -34,25 +34,35 @@ if uploaded_file:
             st.error("None of the required genes are present in the uploaded file.")
         else:
             input_data = user_df[common_genes]
+
+            # Get sample/cell line names
+            if "CELL_LINE_NAMES" in user_df.columns:
+                sample_names = user_df["CELL_LINE_NAMES"]
+            else:
+                sample_names = [f"Sample_{i}" for i in range(len(user_df))]
+
             preds = model.predict(input_data)
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-            # Now summarize predictions by gene
-            gene_summary = pd.DataFrame({
-                "Gene": common_genes,
-                "Prediction": [pred_labels[0]] * len(common_genes)  # Show same result per sample
+            # Combine results
+            result_df = pd.DataFrame({
+                "CELL_LINE_NAMES": sample_names,
+                "Prediction": pred_labels
             })
 
             st.success("Prediction complete!")
-            st.write("🧬 **Gene-wise Prediction Summary**:")
-            st.dataframe(gene_summary)
+            st.write("🧬 Genes used in prediction:")
+            st.code(", ".join(common_genes))
+
+            st.write("📋 **Prediction Result Table** (with Cell Line Names):")
+            st.dataframe(result_df)
 
             # Downloadable CSV
-            gene_csv = gene_summary.to_csv(index=False).encode('utf-8')
+            csv = result_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Download Gene-wise Predictions as CSV",
-                data=gene_csv,
-                file_name='gene_predictions.csv',
+                label="📥 Download CSV with predictions and CELL_LINE_NAMES",
+                data=csv,
+                file_name='CELL_LINE_NAMES_predictions.csv',
                 mime='text/csv'
             )
 
