@@ -54,28 +54,22 @@ for uploaded_file in uploaded_files:
 
     try:
         preds = model.predict(input_data)
-        result_df = user_df.copy()
-        result_df["Prediction"] = preds
+        pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-        # ✅ Show feature genes used
+        # Show genes used
         st.write("🧬 Genes used in prediction:")
         st.code(", ".join(common_genes))
 
-        # ✅ Checkbox: show only resistant samples
-        show_resistant_only = st.checkbox(
-            f"Show only resistant predictions (1) for {uploaded_file.name}",
-            key=uploaded_file.name
-        )
-        if show_resistant_only:
-            result_df = result_df[result_df["Prediction"] == 1]
+        # Prepare readable output per sample
+        st.write("### 📊 Sample-wise Prediction Summary")
+        for idx, row in input_data.iterrows():
+            st.markdown(f"**Sample {idx + 1}: {pred_labels[idx]}**")
+            sample_genes = row.to_dict()
+            gene_list_text = "\n".join([f"- `{gene}`: {val}" for gene, val in sample_genes.items()])
+            st.markdown(gene_list_text)
 
-        # ✅ Display final results
-        st.success("✅ Prediction complete!")
-        st.write("📋 Predictions (with gene names and 0/1):")
-        st.dataframe(result_df)
-
-        # ✅ Bar Chart: Sensitive vs Resistant
-        st.write("### 📊 Prediction Summary")
+        # Bar Chart
+        st.write("### 📈 Overall Prediction Summary")
         counts = pd.Series(preds).value_counts().sort_index()
         labels = ["Sensitive (0)", "Resistant (1)"]
         values = [counts.get(0, 0), counts.get(1, 0)]
@@ -83,17 +77,8 @@ for uploaded_file in uploaded_files:
         fig, ax = plt.subplots()
         ax.bar(labels, values, color=["#4CAF50", "#F44336"])
         ax.set_ylabel("Number of Samples")
-        ax.set_title("Resistance Prediction")
+        ax.set_title("Resistance Prediction Distribution")
         st.pyplot(fig)
-
-        # ✅ Downloadable CSV with predictions
-        csv = result_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Download prediction results with gene data",
-            data=csv,
-            file_name=f"{uploaded_file.name.split('.')[0]}_predictions.csv",
-            mime="text/csv"
-        )
 
     except Exception as e:
         st.error(f"❌ Error during prediction: {e}")
