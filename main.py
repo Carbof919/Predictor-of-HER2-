@@ -33,7 +33,7 @@ if uploaded_file:
             CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
             expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
         else:
-            if "CELL_LINE_NAMES" in user_df.columns:
+             if "CELL_LINE_NAMES" in user_df.columns:
     CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
     expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
 else:
