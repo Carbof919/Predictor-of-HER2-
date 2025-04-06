@@ -33,14 +33,8 @@ if uploaded_file:
             CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
             expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
         else:
-             if "CELL_LINE_NAMES" in user_df.columns:
-    CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
-    expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
-else:
-    st.error("⚠️ Please include a 'CELL_LINE_NAMES' column in your file with CELL_LINE_NAMES.")
-    st.stop()
-
-            expression_data = user_df.copy()
+            st.error("⚠️ Please include a 'CELL_LINE_NAMES' column in your file with cell line names.")
+            st.stop()
 
         # Match features
         common_genes = [gene for gene in features if gene in expression_data.columns]
@@ -62,11 +56,11 @@ else:
             st.write("📋 **Prediction Matrix (Genes vs CELL_LINE_NAMES):**")
             st.dataframe(result_df)
 
-            # Downloadable version (transpose if needed)
+            # Downloadable version (one row per gene per cell line)
             download_df = pd.DataFrame({
                 "Gene": common_genes * len(pred_labels),
-                "CELL_LINE_NAMES": sum([[name]*len(common_genes) for name in CELL_LINE_NAMES], []),
-                "Prediction": sum([[label]*len(common_genes) for label in pred_labels], [])
+                "CELL_LINE_NAMES": sum([[name] * len(common_genes) for name in CELL_LINE_NAMES], []),
+                "Prediction": sum([[label] * len(common_genes) for label in pred_labels], [])
             })
 
             csv = download_df.to_csv(index=False).encode('utf-8')
