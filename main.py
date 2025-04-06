@@ -17,7 +17,7 @@ uploaded_file = st.file_uploader("Upload CSV file with gene expression", type=["
 
 if uploaded_file:
     user_df = pd.read_csv(uploaded_file)
-    st.write("Uploaded data preview:")
+    st.write("📁 Uploaded data preview:")
     st.dataframe(user_df.head())
 
     try:
@@ -29,7 +29,7 @@ if uploaded_file:
         with open(feature_path, "rb") as f:
             features = pickle.load(f)
 
-        # Flexibly identify the column with cell line names
+        # Flexibly identify the cell line column
         cell_line_col = None
         for col in user_df.columns:
             if "cell" in col.lower() and "line" in col.lower():
@@ -52,25 +52,28 @@ if uploaded_file:
             preds = model.predict(input_data)
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-            # One row per cell line, one prediction per row
-            download_df = pd.DataFrame({
-                "Gene": common_genes * len(pred_labels),
-                "CELL_LINE_NAME": sum([[name] * len(common_genes) for name in CELL_LINE_NAMES], []),
-                "Prediction": sum([[label] * len(common_genes) for label in pred_labels], [])
+            # Results table with cell lines as rows and prediction as a column
+            result_df = pd.DataFrame({
+                "CELL_LINE_NAME": CELL_LINE_NAMES,
+                "Prediction": pred_labels
             })
+
+            # Add selected gene expressions to result_df for context (optional)
+            result_df = pd.concat([result_df, input_data.reset_index(drop=True)], axis=1)
 
             st.success("✅ Prediction complete!")
             st.write("🧬 Genes used in prediction:")
             st.code(", ".join(common_genes))
 
-            st.write("📋 **Prediction Table (Cell Lines × Genes):**")
-            st.dataframe(download_df)
+            st.write("📋 **Prediction Table (Cell Lines = Rows, Genes = Columns):**")
+            st.dataframe(result_df)
 
-            csv = download_df.to_csv(index=False).encode('utf-8')
+            # Download CSV
+            csv = result_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Download CSV (Genes × CELL_LINE_NAME with Predictions)",
+                label="📥 Download CSV (Predictions with Gene Expressions)",
                 data=csv,
-                file_name='gene_cellline_predictions.csv',
+                file_name='cellline_predictions.csv',
                 mime='text/csv'
             )
 
