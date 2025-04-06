@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 import os
 
-st.title("Drug Resistance Predictor of HER2+ BRCA")
+st.title("Drug Resistance Predictor")
 st.write("Upload your gene expression file and select a drug to predict resistance.")
 
 # Dropdown with multiple drugs
@@ -28,41 +28,46 @@ if uploaded_file:
         with open(feature_path, "rb") as f:
             features = pickle.load(f)
 
+        # Get cell line names
+        if "CellLine" in user_df.columns:
+            cell_lines = user_df["CellLine"].tolist()
+            expression_data = user_df.drop(columns=["CellLine"])
+        else:
+            cell_lines = [f"Sample_{i}" for i in range(len(user_df))]
+            expression_data = user_df.copy()
+
         # Match features
-        common_genes = [gene for gene in features if gene in user_df.columns]
+        common_genes = [gene for gene in features if gene in expression_data.columns]
         if not common_genes:
             st.error("None of the required genes are present in the uploaded file.")
         else:
-            input_data = user_df[common_genes]
-
-            # Get sample/cell line names
-            if "CELL_LINE_NAMES" in user_df.columns:
-                sample_names = user_df["CELL_LINE_NAMES"]
-            else:
-                sample_names = [f"Sample_{i}" for i in range(len(user_df))]
-
+            input_data = expression_data[common_genes]
             preds = model.predict(input_data)
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-            # Combine results
-            result_df = pd.DataFrame({
-                "CELL_LINE_NAMES": sample_names,
-                "Prediction": pred_labels
-            })
+            # Prepare a transposed DataFrame: Genes as rows, CellLines as columns
+            result_df = pd.DataFrame([pred_labels], index=["Prediction"], columns=cell_lines)
+            result_df.insert(0, "Gene", " / ".join(common_genes))  # Show all used genes
 
             st.success("Prediction complete!")
             st.write("🧬 Genes used in prediction:")
             st.code(", ".join(common_genes))
 
-            st.write("📋 **Prediction Result Table** (with Cell Line Names):")
+            st.write("📋 **Prediction Matrix (Genes vs Cell Lines):**")
             st.dataframe(result_df)
 
-            # Downloadable CSV
-            csv = result_df.to_csv(index=False).encode('utf-8')
+            # Downloadable version (transpose if needed)
+            download_df = pd.DataFrame({
+                "Gene": common_genes * len(pred_labels),
+                "CellLine": sum([[name]*len(common_genes) for name in cell_lines], []),
+                "Prediction": sum([[label]*len(common_genes) for label in pred_labels], [])
+            })
+
+            csv = download_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Download CSV with predictions and CELL_LINE_NAMES",
+                label="📥 Download CSV (Genes × CellLines with Predictions)",
                 data=csv,
-                file_name='CELL_LINE_NAMES_predictions.csv',
+                file_name='gene_cellline_predictions.csv',
                 mime='text/csv'
             )
 
