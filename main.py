@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 import os
 
-st.title("Drug Resistance Predictor")
+st.title("Drug Resistance Predictor of HER2+ BRCA")
 st.write("Upload your gene expression file and select a drug to predict resistance.")
 
 # Dropdown with multiple drugs
@@ -29,11 +29,17 @@ if uploaded_file:
             features = pickle.load(f)
 
         # Get cell line names
-        if "CellLine" in user_df.columns:
-            cell_lines = user_df["CellLine"].tolist()
-            expression_data = user_df.drop(columns=["CellLine"])
+        if "CELL_LINE_NAMES" in user_df.columns:
+            cell_lines = user_df["CELL_LINE_NAMES"].tolist()
+            expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
         else:
-            cell_lines = [f"Sample_{i}" for i in range(len(user_df))]
+            if "CellLine" in user_df.columns:
+    cell_lines = user_df["CELL_LINE_NAMESe"].tolist()
+    expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
+else:
+    st.error("⚠️ Please include a 'CellLine' column in your file with cell line names.")
+    st.stop()
+
             expression_data = user_df.copy()
 
         # Match features
@@ -53,19 +59,19 @@ if uploaded_file:
             st.write("🧬 Genes used in prediction:")
             st.code(", ".join(common_genes))
 
-            st.write("📋 **Prediction Matrix (Genes vs Cell Lines):**")
+            st.write("📋 **Prediction Matrix (Genes vs CELL_LINE_NAMES):**")
             st.dataframe(result_df)
 
             # Downloadable version (transpose if needed)
             download_df = pd.DataFrame({
                 "Gene": common_genes * len(pred_labels),
-                "CellLine": sum([[name]*len(common_genes) for name in cell_lines], []),
+                "CELL_LINE_NAMES": sum([[name]*len(common_genes) for name in CELL_LINE_NAMES], []),
                 "Prediction": sum([[label]*len(common_genes) for label in pred_labels], [])
             })
 
             csv = download_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Download CSV (Genes × CellLines with Predictions)",
+                label="📥 Download CSV (Genes × CELL_LINE_NAMES with Predictions)",
                 data=csv,
                 file_name='gene_cellline_predictions.csv',
                 mime='text/csv'
