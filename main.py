@@ -34,7 +34,7 @@ if uploaded_file:
             expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
         else:
             if "CELL_LINE_NAMES" in user_df.columns:
-    CELL_LINE_NAMES = user_df["CELL_LINE_NAMESe"].tolist()
+    CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
     expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
 else:
     st.error("⚠️ Please include a 'CELL_LINE_NAMES' column in your file with CELL_LINE_NAMES.")
