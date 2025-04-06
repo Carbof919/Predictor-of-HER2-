@@ -30,14 +30,14 @@ if uploaded_file:
 
         # Get cell line names
         if "CELL_LINE_NAMES" in user_df.columns:
-            cell_lines = user_df["CELL_LINE_NAMES"].tolist()
+            CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
             expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
         else:
-            if "CellLine" in user_df.columns:
-    cell_lines = user_df["CELL_LINE_NAMESe"].tolist()
+            if "CELL_LINE_NAMES" in user_df.columns:
+    CELL_LINE_NAMES = user_df["CELL_LINE_NAMESe"].tolist()
     expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
 else:
-    st.error("⚠️ Please include a 'CellLine' column in your file with cell line names.")
+    st.error("⚠️ Please include a 'CELL_LINE_NAMES' column in your file with CELL_LINE_NAMES.")
     st.stop()
 
             expression_data = user_df.copy()
@@ -52,7 +52,7 @@ else:
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
             # Prepare a transposed DataFrame: Genes as rows, CellLines as columns
-            result_df = pd.DataFrame([pred_labels], index=["Prediction"], columns=cell_lines)
+            result_df = pd.DataFrame([pred_labels], index=["Prediction"], columns=CELL_LINE_NAMES)
             result_df.insert(0, "Gene", " / ".join(common_genes))  # Show all used genes
 
             st.success("Prediction complete!")
