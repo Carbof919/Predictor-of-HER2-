@@ -14,6 +14,7 @@ drug = st.selectbox("Select a drug", [
 
 # File upload
 uploaded_file = st.file_uploader("Upload CSV file with gene expression", type=["csv"])
+
 if uploaded_file:
     user_df = pd.read_csv(uploaded_file)
     st.write("Uploaded data preview:")
@@ -28,40 +29,42 @@ if uploaded_file:
         with open(feature_path, "rb") as f:
             features = pickle.load(f)
 
-        # Get cell line names
-        if "CELL_LINE_NAME" in user_df.columns:
-            CELL_LINE_NAME = user_df["CELL_LINE_NAME"].tolist()
-            expression_data = user_df.drop(columns=["CELL_LINE_NAME"])
-        else:
-            st.error("⚠️ Please include a 'CELL_LINE_NAMES' column in your file with cell line names.")
+        # Flexibly identify the column with cell line names
+        cell_line_col = None
+        for col in user_df.columns:
+            if "cell" in col.lower() and "line" in col.lower():
+                cell_line_col = col
+                break
+
+        if not cell_line_col:
+            st.error("⚠️ Please include a column with cell line names (e.g., 'CELL_LINE_NAME', 'cell line', etc.)")
             st.stop()
 
-        # Match features
+        CELL_LINE_NAMES = user_df[cell_line_col].tolist()
+        expression_data = user_df.drop(columns=[cell_line_col])
+
+        # Match features (genes)
         common_genes = [gene for gene in features if gene in expression_data.columns]
         if not common_genes:
-            st.error("None of the required genes are present in the uploaded file.")
+            st.error("❌ None of the required genes are present in the uploaded file.")
         else:
             input_data = expression_data[common_genes]
             preds = model.predict(input_data)
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-            # Prepare a transposed DataFrame: Genes as rows, CellLines as columns
-            result_df = pd.DataFrame([pred_labels], index=["Prediction"], columns=CELL_LINE_NAME)
-            result_df.insert(0, "Gene", " / ".join(common_genes))  # Show all used genes
+            # One row per cell line, one prediction per row
+            download_df = pd.DataFrame({
+                "Gene": common_genes * len(pred_labels),
+                "CELL_LINE_NAME": sum([[name] * len(common_genes) for name in CELL_LINE_NAMES], []),
+                "Prediction": sum([[label] * len(common_genes) for label in pred_labels], [])
+            })
 
-            st.success("Prediction complete!")
+            st.success("✅ Prediction complete!")
             st.write("🧬 Genes used in prediction:")
             st.code(", ".join(common_genes))
 
-            st.write("📋 **Prediction Matrix (Genes vs CELL_LINE_NAME):**")
-            st.dataframe(result_df)
-
-            # Downloadable version (one row per gene per cell line)
-            download_df = pd.DataFrame({
-                "Gene": common_genes * len(pred_labels),
-                "CELL_LINE_NAME": sum([[name] * len(common_genes) for name in CELL_LINE_NAME], []),
-                "Prediction": sum([[label] * len(common_genes) for label in pred_labels], [])
-            })
+            st.write("📋 **Prediction Table (Cell Lines × Genes):**")
+            st.dataframe(download_df)
 
             csv = download_df.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -72,4 +75,4 @@ if uploaded_file:
             )
 
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        st.error(f"🚨 An error occurred: {e}")
