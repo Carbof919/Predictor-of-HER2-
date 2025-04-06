@@ -37,26 +37,24 @@ if uploaded_file:
             preds = model.predict(input_data)
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-            # Show genes used
-            st.write("🧬 Genes used in prediction:")
-            st.code(", ".join(common_genes))
-
-            # Create a result DataFrame (new, doesn't modify original)
-            result_df = input_data.copy()
-            result_df["Prediction"] = pred_labels
-            result_df.index.name = "Sample"
+            # Now summarize predictions by gene
+            gene_summary = pd.DataFrame({
+                "Gene": common_genes,
+                "Prediction": [pred_labels[0]] * len(common_genes)  # Show same result per sample
+            })
 
             st.success("Prediction complete!")
-            st.write("### 📋 Predictions with Gene Values")
-            st.dataframe(result_df)
+            st.write("🧬 **Gene-wise Prediction Summary**:")
+            st.dataframe(gene_summary)
 
             # Downloadable CSV
-            csv = result_df.to_csv().encode('utf-8')
+            gene_csv = gene_summary.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Download Predictions as CSV",
-                data=csv,
-                file_name='predictions_with_genes.csv',
+                label="📥 Download Gene-wise Predictions as CSV",
+                data=gene_csv,
+                file_name='gene_predictions.csv',
                 mime='text/csv'
             )
+
     except Exception as e:
         st.error(f"An error occurred: {e}")
