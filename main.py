@@ -2,58 +2,90 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import matplotlib.pyplot as plt
 
-st.title("Drug Resistance Predictor")
-st.write("Upload your gene expression file and select a drug to predict resistance.")
+st.set_page_config(page_title="Drug Resistance Predictor", layout="wide")
+st.title("🧬 Drug Resistance Predictor")
+st.markdown("---")
+st.write("Upload your gene expression file(s) and select a drug to predict resistance.")
 
-# Dropdown with multiple drugs
-drug = st.selectbox("Select a drug", [
+# Select drug
+drug = st.selectbox("💊 Select a drug", [
     "Lapatinib", "Afatinib", "AZD8931",
     "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
 ])
 
-# File upload
-uploaded_file = st.file_uploader("Upload CSV file with gene expression", type=["csv"])
-if uploaded_file:
+# Upload multiple files
+uploaded_files = st.file_uploader(
+    "📂 Upload one or more CSV files with gene expression data",
+    type=["csv"],
+    accept_multiple_files=True
+)
+
+# Load model & features
+try:
+    model_path = f"models/{drug}_model.pkl"
+    feature_path = "models/feature_names.pkl"
+
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+    with open(feature_path, "rb") as f:
+        features = pickle.load(f)
+except Exception as e:
+    st.error(f"❌ Error loading model or features: {e}")
+    st.stop()
+
+# Process each file
+for uploaded_file in uploaded_files:
+    st.markdown("---")
+    st.subheader(f"📄 File: {uploaded_file.name}")
+
     user_df = pd.read_csv(uploaded_file)
-    st.write("Uploaded data preview:")
+    st.write("Preview of uploaded data:")
     st.dataframe(user_df.head())
 
+    # Match features
+    common_genes = [gene for gene in features if gene in user_df.columns]
+
+    if not common_genes:
+        st.error("⚠️ None of the required genes are present in the uploaded file.")
+        continue
+
+    input_data = user_df[common_genes]
+
     try:
-        model_path = f"models/{drug}_model.pkl"
-        feature_path = "models/feature_names.pkl"
+        preds = model.predict(input_data)
+        result_df = user_df.copy()
+        result_df["Prediction"] = preds
 
-        with open(model_path, "rb") as f:
-            model = pickle.load(f)
-        with open(feature_path, "rb") as f:
-            features = pickle.load(f)
+        # Option: Show only Resistant (1)
+        show_resistant_only = st.checkbox("Show only resistant predictions (1)", key=uploaded_file.name)
+        if show_resistant_only:
+            result_df = result_df[result_df["Prediction"] == 1]
 
-        # Match features
-        common_genes = [gene for gene in features if gene in user_df.columns]
-        if not common_genes:
-            st.error("None of the required genes are present in the uploaded file.")
-        else:
-            # 👇 New: show genes used for prediction
-            st.write("🧬 Genes used in prediction:")
-            st.write(common_genes)
+        st.success("✅ Prediction complete!")
+        st.write(result_df)
 
-            input_data = user_df[common_genes]
-            preds = model.predict(input_data)
-            st.success("Prediction complete!")
+        # Bar chart
+        st.write("### 📊 Prediction Summary")
+        counts = pd.Series(preds).value_counts().sort_index()
+        labels = ["Sensitive (0)", "Resistant (1)"]
+        values = [counts.get(0, 0), counts.get(1, 0)]
 
-            # 👇 New: display results as labeled dataframe
-            result_df = pd.DataFrame({
-                "Sample ID": user_df.index,
-                "Prediction": ["Sensitive" if p == 1 else "Resistant" for p in preds]
-            })
-            st.write(result_df)
+        fig, ax = plt.subplots()
+        ax.bar(labels, values, color=["#4CAF50", "#F44336"])
+        ax.set_ylabel("Number of Samples")
+        ax.set_title("Resistance Prediction")
+        st.pyplot(fig)
 
-            # 👇 New: download button for results
-            csv = result_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Predictions", csv, "predictions.csv", "text/csv")
-            
-            # 👇 Original: raw predictions as list
-            st.write("Raw Predictions:", preds.tolist())
+        # Download option
+        csv = result_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Download predictions as CSV",
+            data=csv,
+            file_name=f"{uploaded_file.name.split('.')[0]}_predictions.csv",
+            mime="text/csv"
+        )
 
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        st.error(f"❌ Error during prediction: {e}")
