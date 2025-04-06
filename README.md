@@ -97,4 +97,4 @@ This app was created as part of a research project focused on Predicting drug re
 
 ---
 
-Let me know if you want it styled with emojis/icons or ready for GitHub with badges!
+
