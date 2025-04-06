@@ -29,9 +29,9 @@ if uploaded_file:
             features = pickle.load(f)
 
         # Get cell line names
-        if "CELL_LINE_NAMES" in user_df.columns:
-            CELL_LINE_NAMES = user_df["CELL_LINE_NAMES"].tolist()
-            expression_data = user_df.drop(columns=["CELL_LINE_NAMES"])
+        if "CELL_LINE_NAME" in user_df.columns:
+            CELL_LINE_NAME = user_df["CELL_LINE_NAME"].tolist()
+            expression_data = user_df.drop(columns=["CELL_LINE_NAME"])
         else:
             st.error("⚠️ Please include a 'CELL_LINE_NAMES' column in your file with cell line names.")
             st.stop()
@@ -46,26 +46,26 @@ if uploaded_file:
             pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
             # Prepare a transposed DataFrame: Genes as rows, CellLines as columns
-            result_df = pd.DataFrame([pred_labels], index=["Prediction"], columns=CELL_LINE_NAMES)
+            result_df = pd.DataFrame([pred_labels], index=["Prediction"], columns=CELL_LINE_NAME)
             result_df.insert(0, "Gene", " / ".join(common_genes))  # Show all used genes
 
             st.success("Prediction complete!")
             st.write("🧬 Genes used in prediction:")
             st.code(", ".join(common_genes))
 
-            st.write("📋 **Prediction Matrix (Genes vs CELL_LINE_NAMES):**")
+            st.write("📋 **Prediction Matrix (Genes vs CELL_LINE_NAME):**")
             st.dataframe(result_df)
 
             # Downloadable version (one row per gene per cell line)
             download_df = pd.DataFrame({
                 "Gene": common_genes * len(pred_labels),
-                "CELL_LINE_NAMES": sum([[name] * len(common_genes) for name in CELL_LINE_NAMES], []),
+                "CELL_LINE_NAME": sum([[name] * len(common_genes) for name in CELL_LINE_NAME], []),
                 "Prediction": sum([[label] * len(common_genes) for label in pred_labels], [])
             })
 
             csv = download_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Download CSV (Genes × CELL_LINE_NAMES with Predictions)",
+                label="📥 Download CSV (Genes × CELL_LINE_NAME with Predictions)",
                 data=csv,
                 file_name='gene_cellline_predictions.csv',
                 mime='text/csv'
