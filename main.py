@@ -9,7 +9,7 @@ st.title("🧬 Drug Resistance Predictor")
 st.markdown("---")
 st.write("Upload your gene expression file(s) and select a drug to predict resistance.")
 
-# Select drug
+# Select a drug
 drug = st.selectbox("💊 Select a drug", [
     "Lapatinib", "Afatinib", "AZD8931",
     "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
@@ -22,7 +22,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-# Load model & features
+# Load model and feature names
 try:
     model_path = f"models/{drug}_model.pkl"
     feature_path = "models/feature_names.pkl"
@@ -35,18 +35,17 @@ except Exception as e:
     st.error(f"❌ Error loading model or features: {e}")
     st.stop()
 
-# Process each file
+# Process each uploaded file
 for uploaded_file in uploaded_files:
     st.markdown("---")
     st.subheader(f"📄 File: {uploaded_file.name}")
 
     user_df = pd.read_csv(uploaded_file)
-    st.write("Preview of uploaded data:")
+    st.write("🔍 Preview of uploaded data:")
     st.dataframe(user_df.head())
 
     # Match features
     common_genes = [gene for gene in features if gene in user_df.columns]
-
     if not common_genes:
         st.error("⚠️ None of the required genes are present in the uploaded file.")
         continue
@@ -58,15 +57,24 @@ for uploaded_file in uploaded_files:
         result_df = user_df.copy()
         result_df["Prediction"] = preds
 
-        # Option: Show only Resistant (1)
-        show_resistant_only = st.checkbox("Show only resistant predictions (1)", key=uploaded_file.name)
+        # ✅ Show feature genes used
+        st.write("🧬 Genes used in prediction:")
+        st.code(", ".join(common_genes))
+
+        # ✅ Checkbox: show only resistant samples
+        show_resistant_only = st.checkbox(
+            f"Show only resistant predictions (1) for {uploaded_file.name}",
+            key=uploaded_file.name
+        )
         if show_resistant_only:
             result_df = result_df[result_df["Prediction"] == 1]
 
+        # ✅ Display final results
         st.success("✅ Prediction complete!")
-        st.write(result_df)
+        st.write("📋 Predictions (with gene names and 0/1):")
+        st.dataframe(result_df)
 
-        # Bar chart
+        # ✅ Bar Chart: Sensitive vs Resistant
         st.write("### 📊 Prediction Summary")
         counts = pd.Series(preds).value_counts().sort_index()
         labels = ["Sensitive (0)", "Resistant (1)"]
@@ -78,10 +86,10 @@ for uploaded_file in uploaded_files:
         ax.set_title("Resistance Prediction")
         st.pyplot(fig)
 
-        # Download option
+        # ✅ Downloadable CSV with predictions
         csv = result_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download predictions as CSV",
+            label="📥 Download prediction results with gene data",
             data=csv,
             file_name=f"{uploaded_file.name.split('.')[0]}_predictions.csv",
             mime="text/csv"
