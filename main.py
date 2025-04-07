@@ -25,7 +25,7 @@ uploaded_file = st.file_uploader("📤 Upload Gene Expression CSV", type=["csv"]
 
 # Load common features
 try:
-    feature_genes = joblib.load("feature.pkl")  # Common feature set
+    feature_genes = joblib.load("feature_names.pkl")  # Common feature set
 except Exception as e:
     st.error("❌ Failed to load feature.pkl. Make sure the file exists.")
     st.stop()
