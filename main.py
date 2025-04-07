@@ -1,73 +1,102 @@
 import streamlit as st
 import pandas as pd
-import joblib
+import pickle
 import os
 
-st.set_page_config(page_title="Multi-Drug Response Predictor", layout="wide")
+st.title("💊 Drug Resistance Predictor of HER2+ Breast Cancer")
 
-st.title("💊 Drug Response Predictor")
 st.markdown("""
-Upload your gene expression data and select multiple drugs to predict response (Sensitive or Resistant).  
-**Note:** One shared `feature.pkl` is used across all models.
+> ⚠️ **Important:** To ensure correct results, your file should contain **gene expression values** for each **cell line** like this:
+
+| CELL_LINE_NAME | GeneA | GeneB | GeneC | ... |
+|----------------|-------|-------|-------|-----|
+| AU565          | 2.34  | 1.11  | 3.50  | ... |
+| SKBR3          | 1.02  | 0.88  | 2.79  | ... |
+
+- The column with cell line names should be labeled something like `CELL_LINE_NAME`, `Cell Line`, or similar.
+- Gene columns should match the required features for the selected drug.
 """)
 
-# 📄 Show example input format
-with st.expander("📄 Example of Required Input Format"):
-    sample_df = pd.DataFrame({
-        "Gene1": [7.2, 5.1],
-        "Gene2": [3.3, 6.7],
-        "Gene3": [4.9, 2.8]
-    }, index=["CellLine1", "CellLine2"])
-    st.dataframe(sample_df)
+# Dropdown with multiple drugs
+drug = st.selectbox("Select a drug", [
+    "Lapatinib", "Afatinib", "AZD8931",
+    "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
+])
 
-# Upload expression file
-uploaded_file = st.file_uploader("📤 Upload Gene Expression CSV", type=["csv"])
+# Optional (but cool): Dynamic subheader based on selected drug
+st.subheader(f"🧪 Prediction Results for {drug}")
 
-# Load common features
-try:
-    feature_genes = joblib.load("feature_names.pkl")  # Common feature set
-except Exception as e:
-    st.error("❌ Failed to load feature.pkl. Make sure the file exists.")
-    st.stop()
-
-# Load available models
-model_dir = "models"
-available_drugs = [f.replace("_model.pkl", "") for f in os.listdir(model_dir) if f.endswith("_model.pkl")]
-
-# Select drugs
-selected_drugs = st.multiselect("🧪 Select Drugs to Predict", available_drugs)
-
-# Prediction
-if uploaded_file and selected_drugs:
-    df_input = pd.read_csv(uploaded_file, index_col=0)
+# File upload
+uploaded_file = st.file_uploader("📤 Upload CSV file with gene expression", type=["csv"])
+if uploaded_file:
+    user_df = pd.read_csv(uploaded_file)
+    st.write("👀 Uploaded data preview:")
+    st.dataframe(user_df.head())
 
     try:
-        df_filtered = df_input[feature_genes]
-    except KeyError as e:
-        missing = list(set(feature_genes) - set(df_input.columns))
-        st.error(f"❌ Missing required genes in input file: {missing[:5]}{'...' if len(missing) > 5 else ''}")
-        st.stop()
+        # Load model and feature list
+        model_path = f"models/{drug}_model.pkl"
+        feature_path = "models/feature_names.pkl"
 
-    result_df = df_input.copy()
+        with open(model_path, "rb") as f:
+            model = pickle.load(f)
+        with open(feature_path, "rb") as f:
+            features = pickle.load(f)
 
-    for drug in selected_drugs:
-        model_path = os.path.join(model_dir, f"{drug}_model.pkl")
-        if not os.path.exists(model_path):
-            st.warning(f"⚠️ Model for {drug} not found. Skipping.")
-            continue
+        # Identify cell line column (flexibly)
+        cell_line_col = None
+        for col in user_df.columns:
+            if "cell" in col.lower() and "line" in col.lower():
+                cell_line_col = col
+                break
 
-        model = joblib.load(model_path)
-        preds = model.predict(df_filtered)
-        result_df[f"{drug}_Response"] = preds
+        if not cell_line_col:
+            st.error("❌ Could not find a column with cell line names. Please ensure it contains terms like 'cell' and 'line'.")
+            st.stop()
 
-    # Show predictions
-    st.subheader("🧾 Combined Prediction Result")
-    st.dataframe(result_df)
+        # Extract cell lines and expression matrix
+        CELL_LINE_NAMES = user_df[cell_line_col].tolist()
+        expression_data = user_df.drop(columns=[cell_line_col])
 
-    # Download CSV
-    st.download_button(
-        label="📥 Download Prediction CSV",
-        data=result_df.to_csv().encode('utf-8'),
-        file_name="drug_response_predictions.csv",
-        mime="text/csv"
-    )
+        # Match features
+        common_genes = [gene for gene in features if gene in expression_data.columns]
+        if not common_genes:
+            st.error("❌ None of the required genes were found in your uploaded file.")
+            st.code("Required genes:\n" + ", ".join(features))
+            st.stop()
+
+        # Subset input data
+        input_data = expression_data[common_genes]
+        preds = model.predict(input_data)
+
+        # Convert predictions to labels
+        pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
+
+        # Create matrix-style DataFrame
+        matrix_data = pd.DataFrame([pred_labels] * len(common_genes),  # repeated rows
+                                   columns=CELL_LINE_NAMES,
+                                   index=common_genes).T  # transpose so cell lines = rows
+
+        st.success("✅ Prediction complete!")
+        st.write("🧬 Genes used for prediction:")
+        st.code(", ".join(common_genes))
+
+        st.write("📊 **Prediction Matrix** (Cell lines as rows, genes as columns):")
+        st.dataframe(matrix_data)
+
+        # 📥 Downloadable version: same as shown matrix
+        download_df = matrix_data.copy()
+        download_df.insert(0, "CELL_LINE_NAME", download_df.index)
+        csv = download_df.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            label="📥 Download Predictions as CSV",
+            data=csv,
+            file_name=f"{drug}_predictions.csv",
+            mime='text/csv'
+        )
+
+    except Exception as e:
+        st.error(f"❌ An error occurred: {e}")
+
+
