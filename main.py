@@ -1,100 +1,104 @@
 import streamlit as st
 import pandas as pd
-import pickle
-import os
+import joblib
+import base64
 
-st.title("💊 Drug Resistance Predictor of HER2+ Breast Cancer")
+st.set_page_config(page_title="Drug Response Predictor", layout="wide")
+st.title("🧬 Drug Response Prediction App")
 
+# Instructions
 st.markdown("""
-> ⚠️ **Important:** To ensure correct results, your file should contain **gene expression values** for each **cell line** like this:
-
-| CELL_LINE_NAME | GeneA | GeneB | GeneC | ... |
-|----------------|-------|-------|-------|-----|
-| AU565          | 2.34  | 1.11  | 3.50  | ... |
-| SKBR3          | 1.02  | 0.88  | 2.79  | ... |
-
-- The column with cell line names should be labeled something like `CELL_LINE_NAME`, `Cell Line`, or similar.
-- Gene columns should match the required features for the selected drug.
+### 📂 Upload Your Gene Expression File
+- CSV format
+- Rows: Cell lines, Columns: Genes
+- Example format:
 """)
 
-# Dropdown with multiple drugs
-drug = st.selectbox("Select a drug", [
-    "Lapatinib", "Afatinib", "AZD8931",
-    "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
-])
+example_data = pd.DataFrame({
+    "Gene1": [2.3, 1.1, 0.5],
+    "Gene2": [0.4, 3.2, 2.1],
+    "Gene3": [1.2, 1.0, 0.3]
+}, index=["CellLine1", "CellLine2", "CellLine3"])
+st.dataframe(example_data)
 
-# Optional (but cool): Dynamic subheader based on selected drug
-st.subheader(f"🧪 Prediction Results for {drug}")
-
-# File upload
-uploaded_file = st.file_uploader("📤 Upload CSV file with gene expression", type=["csv"])
+# Upload input data
+uploaded_file = st.file_uploader("📁 Upload Gene Expression CSV", type=["csv"])
+input_df = None
 if uploaded_file:
-    user_df = pd.read_csv(uploaded_file)
-    st.write("👀 Uploaded data preview:")
-    st.dataframe(user_df.head())
+    input_df = pd.read_csv(uploaded_file, index_col=0)
+    st.success("✅ File uploaded and processed successfully!")
+    st.write("### 👀 Preview of Uploaded Data")
+    st.dataframe(input_df.head())
 
-    try:
-        # Load model and feature list
-        model_path = f"models/{drug}_model.pkl"
-        feature_path = "models/feature_names.pkl"
+# Load list of drugs
+try:
+    with open("models/drug_list.txt") as f:
+        drug_list = f.read().splitlines()
+except:
+    drug_list = []
 
-        with open(model_path, "rb") as f:
-            model = pickle.load(f)
-        with open(feature_path, "rb") as f:
-            features = pickle.load(f)
+st.markdown("---")
+st.header("🔬 Predict Single Drug Response")
+drug = st.selectbox("💊 Select a drug", drug_list)
 
-        # Identify cell line column (flexibly)
-        cell_line_col = None
-        for col in user_df.columns:
-            if "cell" in col.lower() and "line" in col.lower():
-                cell_line_col = col
-                break
+if st.button("🚀 Predict Response"):
+    if input_df is not None:
+        try:
+            model = joblib.load(f"models/model_{drug}.pkl")
+            features = joblib.load(f"features/features_{drug}.pkl")
+            filtered_input = input_df[features]
+            pred = model.predict(filtered_input)
+            result_df = pd.DataFrame({
+                "Cell Line": input_df.index,
+                "Prediction": pred
+            })
+            result_df = pd.concat([result_df, filtered_input.reset_index(drop=True)], axis=1)
 
-        if not cell_line_col:
-            st.error("❌ Could not find a column with cell line names. Please ensure it contains terms like 'cell' and 'line'.")
-            st.stop()
+            st.subheader(f"🧪 Prediction Results for {drug}")
+            st.dataframe(result_df)
 
-        # Extract cell lines and expression matrix
-        CELL_LINE_NAMES = user_df[cell_line_col].tolist()
-        expression_data = user_df.drop(columns=[cell_line_col])
+            csv = result_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📅 Download Results",
+                data=csv,
+                file_name=f"{drug}_predictions.csv",
+                mime="text/csv"
+            )
 
-        # Match features
-        common_genes = [gene for gene in features if gene in expression_data.columns]
-        if not common_genes:
-            st.error("❌ None of the required genes were found in your uploaded file.")
-            st.code("Required genes:\n" + ", ".join(features))
-            st.stop()
+        except Exception as e:
+            st.error(f"Something went wrong: {e}")
+    else:
+        st.warning("Please upload a gene expression file first.")
 
-        # Subset input data
-        input_data = expression_data[common_genes]
-        preds = model.predict(input_data)
+st.markdown("---")
+st.header("🧪 Multi-Drug Response Prediction")
 
-        # Convert predictions to labels
-        pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
+selected_drugs = st.multiselect("📌 Select up to 3 drugs", drug_list, max_selections=3)
 
-        # Create matrix-style DataFrame
-        matrix_data = pd.DataFrame([pred_labels] * len(common_genes),  # repeated rows
-                                   columns=CELL_LINE_NAMES,
-                                   index=common_genes).T  # transpose so cell lines = rows
+if st.button("🚀 Run Multi-Drug Prediction"):
+    if input_df is not None and selected_drugs:
+        results = pd.DataFrame()
+        results["Cell Line"] = input_df.index
 
-        st.success("✅ Prediction complete!")
-        st.write("🧬 Genes used for prediction:")
-        st.code(", ".join(common_genes))
+        for d in selected_drugs:
+            try:
+                model = joblib.load(f"models/model_{d}.pkl")
+                genes = joblib.load(f"features/features_{d}.pkl")
+                filtered_input = input_df[genes]
+                pred = model.predict(filtered_input)
+                results[d] = pred
+            except Exception as e:
+                st.warning(f"Prediction failed for {d}: {e}")
 
-        st.write("📊 **Prediction Matrix** (Cell lines as rows, genes as columns):")
-        st.dataframe(matrix_data)
+        st.subheader("📋 Multi-Drug Prediction Results")
+        st.dataframe(results)
 
-        # 📥 Downloadable version: same as shown matrix
-        download_df = matrix_data.copy()
-        download_df.insert(0, "CELL_LINE_NAME", download_df.index)
-        csv = download_df.to_csv(index=False).encode('utf-8')
-
+        csv = results.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download Predictions as CSV",
-            data=csv,
-            file_name=f"{drug}_predictions.csv",
-            mime='text/csv'
+            "📅 Download Multi-Drug Predictions",
+            csv,
+            "multi_drug_predictions.csv",
+            "text/csv"
         )
-
-    except Exception as e:
-        st.error(f"❌ An error occurred: {e}")
+    else:
+        st.warning("Please upload a gene expression file and select drugs.")
