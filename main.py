@@ -6,7 +6,7 @@ import os
 from sklearn.ensemble import RandomForestClassifier
 
 # Load the common feature list
-with open("feature.pkl", "rb") as f:
+with open("feature_names.pkl", "rb") as f:
     feature_genes = pickle.load(f)
 
 # Title & upload
