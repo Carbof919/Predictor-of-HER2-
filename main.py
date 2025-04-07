@@ -24,19 +24,20 @@ st.markdown("""
 - Gene columns should match the required features for the selected drug.
 """)
 
-
 uploaded_file = st.file_uploader("Upload your gene expression CSV file", type=["csv"])
 
-# Allow selecting multiple drugs
-# FIXED LINE
-all_model_files = [f for f in os.listdir(" "Lapatinib", "Afatinib", "AZD8931",
-    "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
-") if f.endswith(".pkl") and f != "feature_names.pkl"]
-selected_drugs = st.multiselect("Select Drug(s)", all_model_files)
+# Filter valid model files from the "models/" folder
+model_folder = "models"
+model_files = [f for f in os.listdir(model_folder) if f.endswith(".pkl") and f != "feature_names.pkl"]
 
+# Map: Clean drug name (no .pkl) -> Full filename
+drug_name_map = {os.path.splitext(f)[0]: f for f in model_files}
+
+# Allow selecting multiple clean drug names
+selected_clean_names = st.multiselect("Select Drug(s)", list(drug_name_map.keys()))
 
 # Predict button
-if uploaded_file and selected_drugs and st.button("Run Prediction"):
+if uploaded_file and selected_clean_names and st.button("Run Prediction"):
     user_data = pd.read_csv(uploaded_file, index_col=0)
     gene_input = user_data.copy()
 
@@ -50,22 +51,21 @@ if uploaded_file and selected_drugs and st.button("Run Prediction"):
     results = pd.DataFrame(index=user_data.index)
     results["Cell Line"] = results.index
 
-    for drug_file in selected_drugs:
-        drug_name = os.path.splitext(drug_file)[0]
-        with open(f"models/{drug_file}", "rb") as f:
+    # Predict for each selected drug
+    for drug_name in selected_clean_names:
+        model_file = drug_name_map[drug_name]
+        with open(f"{model_folder}/{model_file}", "rb") as f:
             model = pickle.load(f)
 
         pred = model.predict(gene_input)
         pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
         results[f"{drug_name}_Response"] = pred_labels
 
-    # Add the selected features back
+    # Create display with gene values + responses
     result_display = user_data[available_genes].copy()
     result_display.insert(0, "Cell Line", user_data.index)
 
-    # Append all drug response columns after Cell Line
-    for drug_file in selected_drugs:
-        drug_name = os.path.splitext(drug_file)[0]
+    for drug_name in selected_clean_names:
         result_display[f"{drug_name}_Response"] = results[f"{drug_name}_Response"].values
 
     # Preview
@@ -73,11 +73,11 @@ if uploaded_file and selected_drugs and st.button("Run Prediction"):
     st.write(result_display)
 
     # Download
-    drug_names = "_".join([os.path.splitext(drug)[0] for drug in selected_drugs])
+    drug_names_joined = "_".join(selected_clean_names)
     csv = result_display.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Download Results",
         data=csv,
-        file_name=f"{drug_names}_Predictions.csv",
+        file_name=f"{drug_names_joined}_Predictions.csv",
         mime="text/csv"
     )
