@@ -29,7 +29,9 @@ uploaded_file = st.file_uploader("Upload your gene expression CSV file", type=["
 
 # Allow selecting multiple drugs
 # FIXED LINE
-all_model_files = [f for f in os.listdir("models") if f.endswith(".pkl") and f != "feature_names.pkl"]
+all_model_files = [f for f in os.listdir(" "Lapatinib", "Afatinib", "AZD8931",
+    "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
+") if f.endswith(".pkl") and f != "feature_names.pkl"]
 selected_drugs = st.multiselect("Select Drug(s)", all_model_files)
 
 
