@@ -75,12 +75,16 @@ if uploaded_file:
             # ✅ Dynamic result subheader
             st.subheader(f"🧪 Prediction Results for {drug}")
 
-            # Display results table
-            result_df = pd.DataFrame({
-                "CELL_LINE_NAME": CELL_LINE_NAMES,
-                "Prediction": pred_labels
-            })
-            st.dataframe(result_df)
+            # ✅ Matrix-style: Genes as columns, Cell lines as rows
+matrix_data = pd.DataFrame(
+    data=[[label] * len(common_genes) for label in pred_labels],
+    index=CELL_LINE_NAMES,
+    columns=common_genes
+)
+
+st.subheader(f"🧪 Prediction Matrix for {drug}")
+st.dataframe(matrix_data)
+
 
             # Genes used in prediction
             st.markdown("**🧬 Genes used in prediction:**")
