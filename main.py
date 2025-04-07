@@ -85,23 +85,18 @@ if uploaded_file:
         st.subheader(f"🧪 Prediction Matrix for {drug}")
         st.dataframe(matrix_data)
 
-        # 📥 Downloadable version
-        flat_data = []
-        for cell_line, label in zip(CELL_LINE_NAMES, pred_labels):
-            for gene in common_genes:
-                flat_data.append({
-                    "CELL_LINE_NAME": cell_line,
-                    "Gene": gene,
-                    "Prediction": label
-                })
-        download_df = pd.DataFrame(flat_data)
-        csv = download_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Predictions as CSV",
-            data=csv,
-            file_name=f"{drug}_predictions.csv",
-            mime='text/csv'
-        )
+# 📥 Downloadable version: same as shown matrix (cell lines as rows, genes as columns)
+download_df = matrix_data.copy()
+download_df.insert(0, "CELL_LINE_NAME", download_df.index)
+csv = download_df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="📥 Download Predictions as CSV",
+    data=csv,
+    file_name=f"{drug}_predictions.csv",
+    mime='text/csv'
+)
+
 
     except Exception as e:
         st.error(f"❗ An error occurred: {e}")
