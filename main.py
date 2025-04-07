@@ -1,104 +1,76 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import base64
+import os
 
 st.set_page_config(page_title="Drug Response Predictor", layout="wide")
-st.title("🧬 Drug Response Prediction App")
 
-# Instructions
+st.title("💊 Multi-Drug Response Prediction App")
 st.markdown("""
-### 📂 Upload Your Gene Expression File
-- CSV format
-- Rows: Cell lines, Columns: Genes
-- Example format:
+Welcome to the **Drug Response Predictor App**!  
+Upload your gene expression file and choose one or more drugs to see the predicted response (Sensitive or Resistant).
+
+#### ⚠️ Important:
+- Format your input file as: **Rows = Cell Lines**, **Columns = Gene Symbols**
+- File must be in **CSV** format with cell line names as row indexes.
+
+---
 """)
 
-example_data = pd.DataFrame({
-    "Gene1": [2.3, 1.1, 0.5],
-    "Gene2": [0.4, 3.2, 2.1],
-    "Gene3": [1.2, 1.0, 0.3]
-}, index=["CellLine1", "CellLine2", "CellLine3"])
-st.dataframe(example_data)
+# Sample format display
+sample_df = pd.DataFrame({
+    "Gene1": [5.6, 7.8],
+    "Gene2": [2.3, 6.1],
+    "Gene3": [4.9, 3.5]
+}, index=["CellLine1", "CellLine2"])
+with st.expander("📄 See Input File Format Example"):
+    st.dataframe(sample_df)
 
-# Upload input data
-uploaded_file = st.file_uploader("📁 Upload Gene Expression CSV", type=["csv"])
-input_df = None
-if uploaded_file:
-    input_df = pd.read_csv(uploaded_file, index_col=0)
-    st.success("✅ File uploaded and processed successfully!")
-    st.write("### 👀 Preview of Uploaded Data")
-    st.dataframe(input_df.head())
+# File upload
+uploaded_file = st.file_uploader("📤 Upload your Gene Expression CSV", type=["csv"])
 
-# Load list of drugs
-try:
-    with open("models/drug_list.txt") as f:
-        drug_list = f.read().splitlines()
-except:
-    drug_list = []
+# Drug selection
+model_dir = "models"
+feature_dir = "features"
+available_drugs = [f.replace("_model.pkl", "") for f in os.listdir(model_dir) if f.endswith("_model.pkl")]
+selected_drugs = st.multiselect("🧪 Choose One or More Drugs", available_drugs)
 
-st.markdown("---")
-st.header("🔬 Predict Single Drug Response")
-drug = st.selectbox("💊 Select a drug", drug_list)
+# Perform prediction
+if uploaded_file is not None and selected_drugs:
+    df_input = pd.read_csv(uploaded_file, index_col=0)
 
-if st.button("🚀 Predict Response"):
-    if input_df is not None:
+    for drug in selected_drugs:
+        st.subheader(f"🧪 Prediction Results for {drug}")
+
+        # Load features and model
+        feature_path = os.path.join(feature_dir, f"{drug}_features.pkl")
+        model_path = os.path.join(model_dir, f"{drug}_model.pkl")
+
+        if not os.path.exists(feature_path) or not os.path.exists(model_path):
+            st.warning(f"⚠️ Missing model or feature file for {drug}. Skipping.")
+            continue
+
+        features = joblib.load(feature_path)
+        model = joblib.load(model_path)
+
         try:
-            model = joblib.load(f"models/model_{drug}.pkl")
-            features = joblib.load(f"features/features_{drug}.pkl")
-            filtered_input = input_df[features]
-            pred = model.predict(filtered_input)
-            result_df = pd.DataFrame({
-                "Cell Line": input_df.index,
-                "Prediction": pred
-            })
-            result_df = pd.concat([result_df, filtered_input.reset_index(drop=True)], axis=1)
+            df_filtered = df_input[features]
+        except KeyError:
+            st.error(f"🚫 One or more required genes for {drug} not found in your input file.")
+            continue
 
-            st.subheader(f"🧪 Prediction Results for {drug}")
-            st.dataframe(result_df)
+        predictions = model.predict(df_filtered)
+        result_df = pd.DataFrame(predictions, index=df_input.index, columns=[f"{drug}_Response"])
+        preview_df = pd.concat([df_input, result_df], axis=1)
 
-            csv = result_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="📅 Download Results",
-                data=csv,
-                file_name=f"{drug}_predictions.csv",
-                mime="text/csv"
-            )
+        # Show results
+        st.dataframe(preview_df)
 
-        except Exception as e:
-            st.error(f"Something went wrong: {e}")
-    else:
-        st.warning("Please upload a gene expression file first.")
-
-st.markdown("---")
-st.header("🧪 Multi-Drug Response Prediction")
-
-selected_drugs = st.multiselect("📌 Select up to 3 drugs", drug_list, max_selections=3)
-
-if st.button("🚀 Run Multi-Drug Prediction"):
-    if input_df is not None and selected_drugs:
-        results = pd.DataFrame()
-        results["Cell Line"] = input_df.index
-
-        for d in selected_drugs:
-            try:
-                model = joblib.load(f"models/model_{d}.pkl")
-                genes = joblib.load(f"features/features_{d}.pkl")
-                filtered_input = input_df[genes]
-                pred = model.predict(filtered_input)
-                results[d] = pred
-            except Exception as e:
-                st.warning(f"Prediction failed for {d}: {e}")
-
-        st.subheader("📋 Multi-Drug Prediction Results")
-        st.dataframe(results)
-
-        csv = results.to_csv(index=False).encode("utf-8")
+        # Download button
+        csv = preview_df.to_csv().encode('utf-8')
         st.download_button(
-            "📅 Download Multi-Drug Predictions",
-            csv,
-            "multi_drug_predictions.csv",
-            "text/csv"
+            label=f"📥 Download Results for {drug}",
+            data=csv,
+            file_name=f"{drug}_predictions.csv",
+            mime='text/csv'
         )
-    else:
-        st.warning("Please upload a gene expression file and select drugs.")
