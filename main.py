@@ -1,73 +1,73 @@
 import streamlit as st
 import pandas as pd
-import joblib
+import pickle
 import os
 
-st.set_page_config(page_title="Multi-Drug Response Predictor", layout="wide")
+from sklearn.ensemble import RandomForestClassifier
 
-st.title("💊 Drug Response Predictor")
+# Load the common feature list
+with open("feature.pkl", "rb") as f:
+    feature_genes = pickle.load(f)
+
+# Title & upload
+st.title("🔬 Multi-Drug Resistance Predictor")
+
 st.markdown("""
-Upload your gene expression data and select multiple drugs to predict response (Sensitive or Resistant).  
-**Note:** One shared `feature.pkl` is used across all models.
+**ℹ️ Important Note:** Format your CSV like this:
+- Rows = cell lines  
+- Columns = genes (at least the required ones)
+
+You must have expression data for required features.
 """)
 
-# 📄 Show example input format
-with st.expander("📄 Example of Required Input Format"):
-    sample_df = pd.DataFrame({
-        "Gene1": [7.2, 5.1],
-        "Gene2": [3.3, 6.7],
-        "Gene3": [4.9, 2.8]
-    }, index=["CellLine1", "CellLine2"])
-    st.dataframe(sample_df)
+uploaded_file = st.file_uploader("Upload your gene expression CSV file", type=["csv"])
 
-# Upload expression file
-uploaded_file = st.file_uploader("📤 Upload Gene Expression CSV", type=["csv"])
+# Allow selecting multiple drugs
+selected_drugs = st.multiselect("Select Drug(s)", os.listdir("models"))
 
-# Load common features
-try:
-    feature_genes = joblib.load("feature_names.pkl")  # Common feature set
-except Exception as e:
-    st.error("❌ Failed to load feature.pkl. Make sure the file exists.")
-    st.stop()
+# Predict button
+if uploaded_file and selected_drugs and st.button("Run Prediction"):
+    user_data = pd.read_csv(uploaded_file, index_col=0)
+    gene_input = user_data.copy()
 
-# Load available models
-model_dir = "models"
-available_drugs = [f.replace("_model.pkl", "") for f in os.listdir(model_dir) if f.endswith("_model.pkl")]
+    # Only include columns that are in the model
+    missing_genes = [g for g in feature_genes if g not in gene_input.columns]
+    if missing_genes:
+        st.warning(f"⚠️ Missing genes in input: {missing_genes[:5]}... ({len(missing_genes)} total)")
+    available_genes = [g for g in feature_genes if g in gene_input.columns]
+    gene_input = gene_input[available_genes]
 
-# Select drugs
-selected_drugs = st.multiselect("🧪 Select Drugs to Predict", available_drugs)
+    results = pd.DataFrame(index=user_data.index)
+    results["Cell Line"] = results.index
 
-# Prediction
-if uploaded_file and selected_drugs:
-    df_input = pd.read_csv(uploaded_file, index_col=0)
+    for drug_file in selected_drugs:
+        drug_name = os.path.splitext(drug_file)[0]
+        with open(f"models/{drug_file}", "rb") as f:
+            model = pickle.load(f)
 
-    try:
-        df_filtered = df_input[feature_genes]
-    except KeyError as e:
-        missing = list(set(feature_genes) - set(df_input.columns))
-        st.error(f"❌ Missing required genes in input file: {missing[:5]}{'...' if len(missing) > 5 else ''}")
-        st.stop()
+        pred = model.predict(gene_input)
+        pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+        results[f"{drug_name}_Response"] = pred_labels
 
-    result_df = df_input.copy()
+    # Add the selected features back
+    result_display = user_data[available_genes].copy()
+    result_display.insert(0, "Cell Line", user_data.index)
 
-    for drug in selected_drugs:
-        model_path = os.path.join(model_dir, f"{drug}_model.pkl")
-        if not os.path.exists(model_path):
-            st.warning(f"⚠️ Model for {drug} not found. Skipping.")
-            continue
+    # Append all drug response columns after Cell Line
+    for drug_file in selected_drugs:
+        drug_name = os.path.splitext(drug_file)[0]
+        result_display[f"{drug_name}_Response"] = results[f"{drug_name}_Response"].values
 
-        model = joblib.load(model_path)
-        preds = model.predict(df_filtered)
-        result_df[f"{drug}_Response"] = preds
+    # Preview
+    st.subheader("🧪 Prediction Results")
+    st.write(result_display)
 
-    # Show predictions
-    st.subheader("🧾 Combined Prediction Result")
-    st.dataframe(result_df)
-
-    # Download CSV
+    # Download
+    drug_names = "_".join([os.path.splitext(drug)[0] for drug in selected_drugs])
+    csv = result_display.to_csv(index=False).encode("utf-8")
     st.download_button(
-        label="📥 Download Prediction CSV",
-        data=result_df.to_csv().encode('utf-8'),
-        file_name="drug_response_predictions.csv",
+        label="📥 Download Results",
+        data=csv,
+        file_name=f"{drug_names}_Predictions.csv",
         mime="text/csv"
     )
