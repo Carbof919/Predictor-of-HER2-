@@ -13,12 +13,17 @@ with open("feature_names.pkl", "rb") as f:
 st.title("🔬 Multi-Drug Resistance Predictor")
 
 st.markdown("""
-**ℹ️ Important Note:** Format your CSV like this:
-- Rows = cell lines  
-- Columns = genes (at least the required ones)
+> ⚠️ **Important:** To ensure correct results, your file should contain **gene expression values** for each **cell line** like this:
 
-You must have expression data for required features.
+| CELL_LINE_NAME | GeneA | GeneB | GeneC | ... |
+|----------------|-------|-------|-------|-----|
+| AU565          | 2.34  | 1.11  | 3.50  | ... |
+| SKBR3          | 1.02  | 0.88  | 2.79  | ... |
+
+- The column with cell line names should be labeled something like `CELL_LINE_NAME`, `Cell Line`, or similar.
+- Gene columns should match the required features for the selected drug.
 """)
+
 
 uploaded_file = st.file_uploader("Upload your gene expression CSV file", type=["csv"])
 
