@@ -3,74 +3,71 @@ import pandas as pd
 import joblib
 import os
 
-st.set_page_config(page_title="Drug Response Predictor", layout="wide")
+st.set_page_config(page_title="Multi-Drug Response Predictor", layout="wide")
 
-st.title("💊 Multi-Drug Response Prediction App")
+st.title("💊 Drug Response Predictor")
 st.markdown("""
-Welcome to the **Drug Response Predictor App**!  
-Upload your gene expression file and choose one or more drugs to see the predicted response (Sensitive or Resistant).
-
-#### ⚠️ Important:
-- Format your input file as: **Rows = Cell Lines**, **Columns = Gene Symbols**
-- File must be in **CSV** format with cell line names as row indexes.
-
----
+Upload your gene expression data and select multiple drugs to predict response (Sensitive or Resistant).  
+**Note:** One shared `feature.pkl` is used across all models.
 """)
 
-# Sample format display
-sample_df = pd.DataFrame({
-    "Gene1": [5.6, 7.8],
-    "Gene2": [2.3, 6.1],
-    "Gene3": [4.9, 3.5]
-}, index=["CellLine1", "CellLine2"])
-with st.expander("📄 See Input File Format Example"):
+# 📄 Show example input format
+with st.expander("📄 Example of Required Input Format"):
+    sample_df = pd.DataFrame({
+        "Gene1": [7.2, 5.1],
+        "Gene2": [3.3, 6.7],
+        "Gene3": [4.9, 2.8]
+    }, index=["CellLine1", "CellLine2"])
     st.dataframe(sample_df)
 
-# File upload
-uploaded_file = st.file_uploader("📤 Upload your Gene Expression CSV", type=["csv"])
+# Upload expression file
+uploaded_file = st.file_uploader("📤 Upload Gene Expression CSV", type=["csv"])
 
-# Drug selection
+# Load common features
+try:
+    feature_genes = joblib.load("feature.pkl")  # Common feature set
+except Exception as e:
+    st.error("❌ Failed to load feature.pkl. Make sure the file exists.")
+    st.stop()
+
+# Load available models
 model_dir = "models"
-feature_dir = "features"
 available_drugs = [f.replace("_model.pkl", "") for f in os.listdir(model_dir) if f.endswith("_model.pkl")]
-selected_drugs = st.multiselect("🧪 Choose One or More Drugs", available_drugs)
 
-# Perform prediction
-if uploaded_file is not None and selected_drugs:
+# Select drugs
+selected_drugs = st.multiselect("🧪 Select Drugs to Predict", available_drugs)
+
+# Prediction
+if uploaded_file and selected_drugs:
     df_input = pd.read_csv(uploaded_file, index_col=0)
 
+    try:
+        df_filtered = df_input[feature_genes]
+    except KeyError as e:
+        missing = list(set(feature_genes) - set(df_input.columns))
+        st.error(f"❌ Missing required genes in input file: {missing[:5]}{'...' if len(missing) > 5 else ''}")
+        st.stop()
+
+    result_df = df_input.copy()
+
     for drug in selected_drugs:
-        st.subheader(f"🧪 Prediction Results for {drug}")
-
-        # Load features and model
-        feature_path = os.path.join(feature_dir, f"{drug}_features.pkl")
         model_path = os.path.join(model_dir, f"{drug}_model.pkl")
-
-        if not os.path.exists(feature_path) or not os.path.exists(model_path):
-            st.warning(f"⚠️ Missing model or feature file for {drug}. Skipping.")
+        if not os.path.exists(model_path):
+            st.warning(f"⚠️ Model for {drug} not found. Skipping.")
             continue
 
-        features = joblib.load(feature_path)
         model = joblib.load(model_path)
+        preds = model.predict(df_filtered)
+        result_df[f"{drug}_Response"] = preds
 
-        try:
-            df_filtered = df_input[features]
-        except KeyError:
-            st.error(f"🚫 One or more required genes for {drug} not found in your input file.")
-            continue
+    # Show predictions
+    st.subheader("🧾 Combined Prediction Result")
+    st.dataframe(result_df)
 
-        predictions = model.predict(df_filtered)
-        result_df = pd.DataFrame(predictions, index=df_input.index, columns=[f"{drug}_Response"])
-        preview_df = pd.concat([df_input, result_df], axis=1)
-
-        # Show results
-        st.dataframe(preview_df)
-
-        # Download button
-        csv = preview_df.to_csv().encode('utf-8')
-        st.download_button(
-            label=f"📥 Download Results for {drug}",
-            data=csv,
-            file_name=f"{drug}_predictions.csv",
-            mime='text/csv'
-        )
+    # Download CSV
+    st.download_button(
+        label="📥 Download Prediction CSV",
+        data=result_df.to_csv().encode('utf-8'),
+        file_name="drug_response_predictions.csv",
+        mime="text/csv"
+    )
