@@ -28,7 +28,10 @@ st.markdown("""
 uploaded_file = st.file_uploader("Upload your gene expression CSV file", type=["csv"])
 
 # Allow selecting multiple drugs
-selected_drugs = st.multiselect("Select Drug(s)", os.listdir("models"))
+# FIXED LINE
+all_model_files = [f for f in os.listdir("models") if f.endswith(".pkl") and f != "feature_names.pkl"]
+selected_drugs = st.multiselect("Select Drug(s)", all_model_files)
+
 
 # Predict button
 if uploaded_file and selected_drugs and st.button("Run Prediction"):
