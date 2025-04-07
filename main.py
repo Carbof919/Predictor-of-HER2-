@@ -1,42 +1,40 @@
 import streamlit as st
 import pandas as pd
 import pickle
+import os
 
-st.set_page_config(page_title="HER2+ Drug Resistance Predictor", layout="centered")
-
-st.title("🔬 Drug Resistance Predictor for HER2+ Breast Cancer")
+# Title and description
+st.title("Drug Resistance Predictor for HER2+ Breast Cancer")
 st.write("Upload your gene expression file and select a drug to predict resistance.")
 
-# 🔹 Drug selection
+# 💡 Important file format note
+with st.expander("⚠️ Important: File Format Instructions", expanded=True):
+    st.markdown("""
+    Please format your file like this:
+
+    | Gene1 | Gene2 | Gene3 | ... | CELL_LINE_NAME |
+    |-------|-------|-------|-----|----------------|
+    |  1.23 |  3.45 | 2.34  | ... | AU565          |
+    |  2.12 |  4.33 | 1.67  | ... | BT474          |
+
+    - Column with **cell line names** should be clearly labeled (`CELL_LINE_NAME`, `Cell Line`, etc.)
+    - Genes must be in **columns**.
+    """)
+
+# Drug selection
 drug = st.selectbox("Select a drug", [
     "Lapatinib", "Afatinib", "AZD8931",
     "Pelitinib", "CP724714", "Temsirolimus", "Omipalisib"
 ])
 
-# 🔔 Important Note
-with st.expander("⚠️ Important Note: File Format Requirements (Click to Expand)", expanded=True):
-    st.markdown("""
-    Your CSV file **must** be formatted like this:
+# Optional dynamic subheader
+st.subheader(f"💊 You selected: {drug}")
 
-    - **Rows** = Cell lines  
-    - **Columns** = Gene expression values  
-    - One column should indicate cell line names with a name like: `CELL_LINE_NAME`, `Cell line`, etc.
-    """)
-    
-    # Preview dummy table
-    preview_df = pd.DataFrame({
-        "CELL_LINE_NAME": ["AU565", "BT474", "SKBR3"],
-        "CYP26B1": [1.2, 0.9, 1.1],
-        "THSD7A": [0.7, 1.4, 1.1],
-        "C19orf60": [2.1, 2.0, 1.8]
-    })
-    st.dataframe(preview_df)
-
-# 🔹 File uploader
-uploaded_file = st.file_uploader("📁 Upload your CSV file with gene expression data", type=["csv"])
+# File upload
+uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 if uploaded_file:
     user_df = pd.read_csv(uploaded_file)
-    st.write("✅ Uploaded data preview:")
+    st.write("📄 Uploaded Data Preview:")
     st.dataframe(user_df.head())
 
     try:
@@ -49,7 +47,7 @@ if uploaded_file:
         with open(feature_path, "rb") as f:
             features = pickle.load(f)
 
-        # Identify cell line column
+        # Flexibly detect the cell line column
         cell_line_col = None
         for col in user_df.columns:
             if "cell" in col.lower() and "line" in col.lower():
@@ -57,55 +55,53 @@ if uploaded_file:
                 break
 
         if not cell_line_col:
-            st.error("❗ Please include a column with cell line names (e.g., 'CELL_LINE_NAME', 'cell line', etc.)")
+            st.error("⚠️ Please include a column with cell line names (e.g., 'CELL_LINE_NAME').")
             st.stop()
 
         CELL_LINE_NAMES = user_df[cell_line_col].tolist()
         expression_data = user_df.drop(columns=[cell_line_col])
 
-        # Filter relevant genes
+        # Match features
         common_genes = [gene for gene in features if gene in expression_data.columns]
         if not common_genes:
-            st.error("❗ None of the required genes are present in the uploaded file.")
-        else:
-            input_data = expression_data[common_genes]
-            preds = model.predict(input_data)
-            pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
+            st.error("❌ None of the required genes were found in your file.")
+            st.stop()
 
-            # ✅ Dynamic result subheader
-            st.subheader(f"🧪 Prediction Results for {drug}")
+        input_data = expression_data[common_genes]
+        preds = model.predict(input_data)
+        pred_labels = ["Sensitive" if x == 0 else "Resistant" for x in preds]
 
-            # ✅ Matrix-style: Genes as columns, Cell lines as rows
-matrix_data = pd.DataFrame(
-    data=[[label] * len(common_genes) for label in pred_labels],
-    index=CELL_LINE_NAMES,
-    columns=common_genes
-)
+        # ✅ Show prediction matrix: cell lines (rows) × genes (columns)
+        matrix_data = pd.DataFrame(
+            data=[[label] * len(common_genes) for label in pred_labels],
+            index=CELL_LINE_NAMES,
+            columns=common_genes
+        )
 
-st.subheader(f"🧪 Prediction Matrix for {drug}")
-st.dataframe(matrix_data)
+        st.success("✅ Prediction complete!")
+        st.write("🧬 Genes used in prediction:")
+        st.code(", ".join(common_genes))
 
+        st.subheader(f"🧪 Prediction Matrix for {drug}")
+        st.dataframe(matrix_data)
 
-            # Genes used in prediction
-            st.markdown("**🧬 Genes used in prediction:**")
-            st.code(", ".join(common_genes))
-
-            # Downloadable long format
-            download_df = pd.DataFrame({
-                "Gene": common_genes * len(pred_labels),
-                "CELL_LINE_NAME": sum([[name] * len(common_genes) for name in CELL_LINE_NAMES], []),
-                "Prediction": sum([[label] * len(common_genes) for label in pred_labels], [])
-            })
-
-            csv = download_df.to_csv(index=False).encode('utf-8')
-            file_name = f"{drug.lower()}_gene_cellline_predictions.csv"
-
-            st.download_button(
-                label="📥 Download CSV (Gene × Cell Line with Predictions)",
-                data=csv,
-                file_name=file_name,
-                mime='text/csv'
-            )
+        # 📥 Downloadable version
+        flat_data = []
+        for cell_line, label in zip(CELL_LINE_NAMES, pred_labels):
+            for gene in common_genes:
+                flat_data.append({
+                    "CELL_LINE_NAME": cell_line,
+                    "Gene": gene,
+                    "Prediction": label
+                })
+        download_df = pd.DataFrame(flat_data)
+        csv = download_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Predictions as CSV",
+            data=csv,
+            file_name=f"{drug}_predictions.csv",
+            mime='text/csv'
+        )
 
     except Exception as e:
-        st.error(f"💥 An error occurred: {e}")
+        st.error(f"❗ An error occurred: {e}")
