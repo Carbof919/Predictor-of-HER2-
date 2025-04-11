@@ -8,45 +8,35 @@ import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
 
-# Load the common feature list
+# -----------------------
+# Config
+# -----------------------
+st.set_page_config(page_title="🧠 MultiDrugIntel", page_icon="🧬", layout="wide")
+
+# -----------------------
+# Logo
+# -----------------------
+st.image("A_logo_design_for_an_application_or_organization_n.png", width=100)
+
+# -----------------------
+# Title & Tabs
+# -----------------------
+st.title("🧠 MultiDrugIntel - Multi-Drug Resistance Predictor")
+tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
+
+# -----------------------
+# Load required files
+# -----------------------
 with open("feature_names.pkl", "rb") as f:
     feature_genes = pickle.load(f)
 
-# Load IC50 Data
-@st.cache_data
+with open("drug_ic50_data.json", "r") as f:
+    drug_ic50_data = json.load(f)
 
-def load_ic50_data():
-    with open("drug_ic50_data.json", "r") as f:
-        return json.load(f)
-
-ic50_data = load_ic50_data()
-
-# App title
-st.set_page_config(page_title="MultiDrugIntel", layout="wide")
-st.title("🧠 MultiDrugIntel - Multi-Drug Resistance Predictor")
-
-# Tabs
-selected_tab = st.sidebar.radio("Navigation", [
-    "Predict Drug Resistance",
-    "Visualize IC50"
-])
-
-if selected_tab == "Predict Drug Resistance":
-    st.markdown("""
-    > ⚠️ **Important:** Upload gene expression data like below:
-
-    | CELL_LINE_NAME | GeneA | GeneB | GeneC | ... |
-    |----------------|-------|-------|-------|-----|
-    | AU565          | 2.34  | 1.11  | 3.50  | ... |
-    | SKBR3          | 1.02  | 0.88  | 2.79  | ... |
-
-    - The **first column** should contain cell line names.
-    - Gene columns should match the required features for the selected drug(s).
-    """)
-
-    uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
-
-    drug_name_map = {
+# -----------------------
+# Drug model map
+# -----------------------
+drug_name_map = {
     "AST-1306": "AST-1306_model.pkl",
     "Axitinib": "Axitinib_model.pkl",
     "AZD4547": "AZD4547_model.pkl",
@@ -66,76 +56,123 @@ if selected_tab == "Predict Drug Resistance":
     "Pelitinib": "Pelitinib_model.pkl",
     "Temsirolimus": "Temsirolimus_model.pkl",
     "Omipalisib": "Omipalisib_model.pkl"
-    }
 
+}
 
-    selected_drugs = st.multiselect("💊 Select Drug(s) to Predict Response", list(drug_name_map.keys()))
-
-    if uploaded_file and selected_drugs and st.button("Run Prediction"):
-        user_data = pd.read_csv(uploaded_file, index_col=0)
-        gene_input = user_data.copy()
-
-        available_genes = [g for g in feature_genes if g in gene_input.columns]
-        missing_genes = [g for g in feature_genes if g not in gene_input.columns]
-
-        if missing_genes:
-            st.warning(f"⚠️ Missing genes: {missing_genes[:5]}... ({len(missing_genes)} total)")
-        gene_input = gene_input[available_genes]
-
-        results = pd.DataFrame(index=user_data.index)
-        results["Cell Line"] = results.index
-
-        for drug in selected_drugs:
-            model_file = drug_name_map[drug]
-            with open(os.path.join("models", model_file), "rb") as f:
-                model = pickle.load(f)
-
-            pred = model.predict(gene_input)
-            pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-            results[f"{drug}_Response"] = pred_labels
-
-        full_data = user_data.copy()
-        full_data.insert(0, "Cell Line", full_data.index)
-
-        for drug in selected_drugs:
-            full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
-
-        st.subheader("🧪 Prediction Results")
-        st.write(full_data)
-
-        filename = "_".join(selected_drugs) + "_Predictions.csv"
-        st.download_button(
-            label="📥 Download Predictions",
-            data=full_data.to_csv(index=False).encode("utf-8"),
-            file_name=filename,
-            mime="text/csv"
-        )
-
-elif selected_tab == "Visualize IC50":
-    st.header("💊 IC50 Concentration Visualizer")
+# -----------------------
+# 🏠 Home Tab
+# -----------------------
+with tabs[0]:
+    st.subheader("📚 Instructions")
     st.markdown("""
-    This section lets you explore **IC50 drug concentrations** across different cell lines.
+    **Choose one of the modes below:**
 
-    - **Lower IC50** = Higher potency
-    - Use this for **biological validation** alongside ML predictions.
+    🔹 **Mode 1:** Upload gene expression CSV with cell line names + gene symbols.
+
+    🔹 **Mode 2:** Upload gene expression CSV with gene symbols only (no cell lines).
+
+    🔹 **Mode 3:** Manually input gene names + expression values.
+
+    ⚠️ Ensure gene names match those in the trained models.
     """)
 
-    selected_drugs = st.multiselect("Select Drug(s) to visualize IC50 levels", sorted(list(ic50_data.keys())))
+# -----------------------
+# 📊 Visualize Tab
+# -----------------------
+with tabs[1]:
+    st.subheader("📊 Drug Sensitivity and IC50 Visualization")
 
-    if selected_drugs:
-        for drug in selected_drugs:
-            st.subheader(f"📈 {drug} IC50 Concentration")
+    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
-            data = ic50_data[drug]
-            df = pd.DataFrame(list(data.items()), columns=["Cell Line", "IC50"])
-            df = df.sort_values(by="IC50")
+    data = pd.DataFrame(drug_ic50_data[selected_drug])
 
-            fig, ax = plt.subplots(figsize=(10, 4))
-            sns.barplot(data=df, x="Cell Line", y="IC50", palette="coolwarm", ax=ax)
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-            st.pyplot(fig)
+    fig, ax = plt.subplots(1, 2, figsize=(16, 5))
 
-            with st.expander(f"🔬 Show raw IC50 values for {drug}"):
-                st.dataframe(df)
-    else:
-        st.info("📌 Select one or more drugs to see IC50 concentration charts.")
+    sns.countplot(data=data, x="Label", ax=ax[0], palette="Set2")
+    ax[0].set_title(f"Resistance Distribution for {selected_drug}")
+
+    sns.barplot(data=data, x="CELL_LINE_NAME", y="LN_IC50", ax=ax[1], palette="viridis")
+    ax[1].set_title(f"Log(IC50) values for {selected_drug}")
+    ax[1].tick_params(axis='x', rotation=90)
+
+    st.pyplot(fig)
+
+# -----------------------
+# 🔬 Predict Tab
+# -----------------------
+with tabs[2]:
+    st.subheader("🔬 Predict Drug Response")
+
+    mode = st.radio("Select Input Mode:", [
+        "Mode 1: Cell line + Expression", 
+        "Mode 2: Expression only", 
+        "Mode 3: Manual input"
+    ])
+
+    selected_drugs = st.multiselect("💊 Select Drug(s) to Predict", list(drug_name_map.keys()))
+
+    if mode == "Mode 1: Cell line + Expression":
+        uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
+        if uploaded_file and selected_drugs:
+            user_data = pd.read_csv(uploaded_file, index_col=0)
+            gene_input = user_data.copy()
+
+            available_genes = [g for g in feature_genes if g in gene_input.columns]
+            missing_genes = [g for g in feature_genes if g not in gene_input.columns]
+
+            if missing_genes:
+                st.warning(f"⚠️ Missing genes: {missing_genes[:5]}... ({len(missing_genes)} total)")
+            gene_input = gene_input[available_genes]
+
+            results = pd.DataFrame(index=user_data.index)
+            results["Cell Line"] = results.index
+
+            for drug in selected_drugs:
+                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
+                    model = pickle.load(f)
+                pred = model.predict(gene_input)
+                pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                results[f"{drug}_Response"] = pred_labels
+
+            full_data = user_data.copy()
+            full_data.insert(0, "Cell Line", full_data.index)
+            for drug in selected_drugs:
+                full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
+
+            st.write(full_data)
+
+            filename = "_".join(selected_drugs) + "_Predictions.csv"
+            st.download_button(
+                label="📥 Download Predictions",
+                data=full_data.to_csv(index=False).encode("utf-8"),
+                file_name=filename,
+                mime="text/csv"
+            )
+
+    elif mode == "Mode 2: Expression only":
+        exp_file = st.file_uploader("📁 Upload CSV with expression values only", type=["csv"])
+        if exp_file and selected_drugs:
+            gene_input = pd.read_csv(exp_file)
+            results = {}
+            for drug in selected_drugs:
+                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
+                    model = pickle.load(f)
+                pred = model.predict(gene_input)
+                pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                results[drug] = pred_labels
+            st.write(pd.DataFrame(results))
+
+    elif mode == "Mode 3: Manual input":
+        st.write("✍️ Input gene expressions")
+        gene_input = {}
+        for gene in feature_genes[:10]:
+            gene_input[gene] = st.number_input(f"{gene}", value=1.0)
+        input_df = pd.DataFrame([gene_input])
+        if selected_drugs:
+            results = {}
+            for drug in selected_drugs:
+                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
+                    model = pickle.load(f)
+                pred = model.predict(input_df)
+                results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
+            st.write(results)
