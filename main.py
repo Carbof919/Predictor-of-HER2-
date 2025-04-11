@@ -66,6 +66,7 @@ if selected_tab == "Predict Drug Resistance":
     "Pelitinib": "Pelitinib_model.pkl",
     "Temsirolimus": "Temsirolimus_model.pkl",
     "Omipalisib": "Omipalisib_model.pkl"
+    }
 
 
     selected_drugs = st.multiselect("💊 Select Drug(s) to Predict Response", list(drug_name_map.keys()))
