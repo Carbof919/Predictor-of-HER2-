@@ -5,3 +5,6 @@ scikit-learn
 xgboost
 matplotlib
 plotly
+seaborn
+json
+os
