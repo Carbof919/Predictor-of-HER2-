@@ -16,7 +16,7 @@ st.set_page_config(page_title="🧠 MultiDrugIntel", page_icon="🧬", layout="w
 # -----------------------
 # Logo
 # -----------------------
-st.image("A_logo_design_for_an_application_or_organization_n.png", width=100)
+st.image("Image.png", width=100)
 
 # -----------------------
 # Title & Tabs
