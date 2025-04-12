@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 # -----------------------
 # Config
 # -----------------------
-st.set_page_config(page_title="🧠 MultiDrugIntel", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="🧠 MultiDrugIntel", page_icon="🧪", layout="wide")
 
 # -----------------------
 # Logo
@@ -56,7 +56,6 @@ drug_name_map = {
     "Pelitinib": "Pelitinib_model.pkl",
     "Temsirolimus": "Temsirolimus_model.pkl",
     "Omipalisib": "Omipalisib_model.pkl"
-
 }
 
 # -----------------------
@@ -82,9 +81,13 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
 
-    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
+    selected_drug = st.selectbox("🍺 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
-    data = pd.DataFrame(drug_ic50_data[selected_drug])
+    raw_data = drug_ic50_data[selected_drug]
+    if isinstance(raw_data, dict):
+        raw_data = [raw_data]  # Wrap in list if needed
+
+    data = pd.DataFrame(raw_data)
 
     fig, ax = plt.subplots(1, 2, figsize=(16, 5))
 
@@ -109,7 +112,7 @@ with tabs[2]:
         "Mode 3: Manual input"
     ])
 
-    selected_drugs = st.multiselect("💊 Select Drug(s) to Predict", list(drug_name_map.keys()))
+    selected_drugs = st.multiselect("🍺 Select Drug(s) to Predict", list(drug_name_map.keys()))
 
     if mode == "Mode 1: Cell line + Expression":
         uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
@@ -143,7 +146,7 @@ with tabs[2]:
 
             filename = "_".join(selected_drugs) + "_Predictions.csv"
             st.download_button(
-                label="📥 Download Predictions",
+                label="📅 Download Predictions",
                 data=full_data.to_csv(index=False).encode("utf-8"),
                 file_name=filename,
                 mime="text/csv"
