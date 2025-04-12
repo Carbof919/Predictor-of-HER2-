@@ -81,24 +81,30 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
 
-    selected_drug = st.selectbox("🍺 Choose a drug to visualize", list(drug_ic50_data.keys()))
+    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
-    raw_data = drug_ic50_data[selected_drug]
-    if isinstance(raw_data, dict):
-        raw_data = [raw_data]  # Wrap in list if needed
+    # Convert drug_ic50_data[selected_drug] from dict to DataFrame
+    drug_dict = drug_ic50_data.get(selected_drug, {})
+    if isinstance(drug_dict, dict):
+        data = pd.DataFrame(list(drug_dict.items()), columns=["CELL_LINE_NAME", "LN_IC50"])
 
-    data = pd.DataFrame(raw_data)
+        # Optional: binarize IC50 values to create a Label
+        threshold = data["LN_IC50"].median()  # or use any biological threshold
+        data["Label"] = data["LN_IC50"].apply(lambda x: "Resistant" if x > threshold else "Sensitive")
 
-    fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+        fig, ax = plt.subplots(1, 2, figsize=(16, 5))
 
-    sns.countplot(data=data, x="Label", ax=ax[0], palette="Set2")
-    ax[0].set_title(f"Resistance Distribution for {selected_drug}")
+        sns.countplot(data=data, x="Label", ax=ax[0], palette="Set2")
+        ax[0].set_title(f"Resistance Distribution for {selected_drug}")
 
-    sns.barplot(data=data, x="CELL_LINE_NAME", y="LN_IC50", ax=ax[1], palette="viridis")
-    ax[1].set_title(f"Log(IC50) values for {selected_drug}")
-    ax[1].tick_params(axis='x', rotation=90)
+        sns.barplot(data=data, x="CELL_LINE_NAME", y="LN_IC50", ax=ax[1], palette="viridis")
+        ax[1].set_title(f"Log(IC50) values for {selected_drug}")
+        ax[1].tick_params(axis='x', rotation=90)
 
-    st.pyplot(fig)
+        st.pyplot(fig)
+    else:
+        st.warning("⚠️ No valid IC50 data available for this drug.")
+
 
 # -----------------------
 # 🔬 Predict Tab
