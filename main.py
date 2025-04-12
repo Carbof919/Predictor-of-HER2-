@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import pickle
+import pickle as pl
 import os
 import json
 import matplotlib.pyplot as plt
@@ -181,7 +181,7 @@ with tabs[2]:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    models = pickle.load(f)
+                    models = pl.load(f)
                 pred = model.predict(input_df)
                 results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
             st.write(results)
