@@ -28,7 +28,7 @@ tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
 # Load required files
 # -----------------------
 with open("feature_names.pkl", "rb") as f:
-    feature_genes = pickle.load(f)
+    feature_genes = pl.load(f)
 
 with open("drug_ic50_data.json", "r") as f:
     drug_ic50_data = json.load(f)
@@ -138,7 +138,7 @@ with tabs[2]:
 
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pickle.load(f)
+                    model = pl.load(f)
                 pred = model.predict(gene_input)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[f"{drug}_Response"] = pred_labels
@@ -165,7 +165,7 @@ with tabs[2]:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pickle.load(f)
+                    model = pl.load(f)
                 pred = model.predict(gene_input)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[drug] = pred_labels
