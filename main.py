@@ -181,7 +181,7 @@ with tabs[2]:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pickle.load(f)
+                    models = pickle.load(f)
                 pred = model.predict(input_df)
                 results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
             st.write(results)
