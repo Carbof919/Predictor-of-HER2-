@@ -84,7 +84,7 @@ with tabs[1]:
 
     selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
-    data = pd.DataFrame(drug_ic50_data[selected_drug])
+    data = pd.DataFrame(drug_ic50_data.json[selected_drug])
 
     fig, ax = plt.subplots(1, 2, figsize=(16, 5))
 
