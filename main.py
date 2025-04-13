@@ -172,16 +172,17 @@ with tabs[2]:
             st.write(pd.DataFrame(results))
 
     elif mode == "Mode 3: Manual input":
-        st.write("✍️ Input gene expressions")
-        gene_input = {}
-        for gene in feature_genes[:10]:
-            gene_input[gene] = st.number_input(f"{gene}", value=1.0)
-        input_df = pd.DataFrame([gene_input])
-        if selected_drugs:
-            results = {}
-            for drug in selected_drugs:
-                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    models = pl.load(f)
-                pred = model.predict(input_df)
-                results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
-            st.write(results)
+    st.write("✍️ Input gene expressions")
+    gene_input = {}
+    for gene in feature_genes[:10]:
+        gene_input[gene] = st.number_input(f"{gene}", value=1.0)
+    input_df = pd.DataFrame([gene_input])
+    if selected_drugs:
+        results = {}
+        for drug in selected_drugs:
+            with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
+                model = pl.load(f)  # 🔁 FIXED HERE (was 'models')
+            pred = model.predict(input_df)
+            results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
+        st.write(results)
+
