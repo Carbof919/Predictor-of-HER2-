@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
-import joblib  # Changed from pickle to joblib
+import pickle
 import os
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
+from joblib import load  # Use joblib for model loading
 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -39,7 +40,7 @@ tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
 # Load required files
 # -----------------------
 with open("feature_names.pkl", "rb") as f:
-    feature_genes = joblib.load(f)
+    feature_genes = pickle.load(f)
 
 with open("drug_ic50_data.json", "r") as f:
     drug_ic50_data = json.load(f)
@@ -92,7 +93,7 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
 
-    selected_drug = st.selectbox("🍺 Choose a drug to visualize", list(drug_ic50_data.keys()))
+    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
     drug_dict = drug_ic50_data.get(selected_drug, {})
     if isinstance(drug_dict, dict):
@@ -128,6 +129,14 @@ with tabs[2]:
 
     selected_drugs = st.multiselect("🍺 Select Drug(s) to Predict", list(drug_name_map.keys()))
 
+    def load_model(drug):
+        try:
+            model_path = os.path.join("models", f"{drug}_model.pkl")
+            return load(model_path)
+        except Exception as e:
+            st.error(f"❌ Error loading model for {drug}: {e}")
+            return None
+
     if mode == "Mode 1: Cell line + Expression":
         uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
         if uploaded_file and selected_drugs:
@@ -145,22 +154,23 @@ with tabs[2]:
             results["Cell Line"] = results.index
 
             for drug in selected_drugs:
-                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = joblib.load(f)
-                pred = model.predict(gene_input)
-                pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-                results[f"{drug}_Response"] = pred_labels
+                model = load_model(drug)
+                if model:
+                    pred = model.predict(gene_input)
+                    pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                    results[f"{drug}_Response"] = pred_labels
 
             full_data = user_data.copy()
             full_data.insert(0, "Cell Line", full_data.index)
             for drug in selected_drugs:
-                full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
+                if f"{drug}_Response" in results.columns:
+                    full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
 
             st.write(full_data)
 
             filename = "_".join(selected_drugs) + "_Predictions.csv"
             st.download_button(
-                label="🗕️ Download Predictions",
+                label="📅 Download Predictions",
                 data=full_data.to_csv(index=False).encode("utf-8"),
                 file_name=filename,
                 mime="text/csv"
@@ -172,11 +182,11 @@ with tabs[2]:
             gene_input = pd.read_csv(exp_file)
             results = {}
             for drug in selected_drugs:
-                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = joblib.load(f)
-                pred = model.predict(gene_input)
-                pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-                results[drug] = pred_labels
+                model = load_model(drug)
+                if model:
+                    pred = model.predict(gene_input)
+                    pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                    results[drug] = pred_labels
             st.write(pd.DataFrame(results))
 
     elif mode == "Mode 3: Manual input":
@@ -188,10 +198,9 @@ with tabs[2]:
         if selected_drugs:
             results = {}
             for drug in selected_drugs:
-                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = joblib.load(f)
-                pred = model.predict(input_df)
-                pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-                results[drug] = pred_labels
+                model = load_model(drug)
+                if model:
+                    pred = model.predict(input_df)
+                    results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
             st.write("📋 Prediction Results:")
-            st.write(pd.DataFrame(results))
+            st.write(pd.DataFrame([results]))
