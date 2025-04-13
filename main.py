@@ -182,7 +182,7 @@ with tabs[2]:
     elif mode == "Mode 3: Manual input":
         st.write("✍️ Input gene expressions")
         gene_input = {}
-        for gene in feature_genes[:10]:
+        for gene in feature_genes:
             gene_input[gene] = st.number_input(f"{gene}", value=1.0)
         input_df = pd.DataFrame([gene_input])
         if selected_drugs:
@@ -191,5 +191,7 @@ with tabs[2]:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
                     model = pickle.load(f)
                 pred = model.predict(input_df)
-                results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
-            st.write(results)
+                pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                results[drug] = pred_labels
+            st.write("📋 Prediction Results:")
+            st.write(pd.DataFrame(results))
