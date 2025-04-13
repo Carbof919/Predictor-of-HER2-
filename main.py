@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import pickle
+import joblib  # Changed from pickle to joblib
 import os
 import json
 import matplotlib.pyplot as plt
@@ -39,7 +39,7 @@ tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
 # Load required files
 # -----------------------
 with open("feature_names.pkl", "rb") as f:
-    feature_genes = pickle.load(f)
+    feature_genes = joblib.load(f)
 
 with open("drug_ic50_data.json", "r") as f:
     drug_ic50_data = json.load(f)
@@ -92,7 +92,7 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
 
-    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
+    selected_drug = st.selectbox("🍺 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
     drug_dict = drug_ic50_data.get(selected_drug, {})
     if isinstance(drug_dict, dict):
@@ -146,7 +146,7 @@ with tabs[2]:
 
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pickle.load(f)
+                    model = joblib.load(f)
                 pred = model.predict(gene_input)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[f"{drug}_Response"] = pred_labels
@@ -160,7 +160,7 @@ with tabs[2]:
 
             filename = "_".join(selected_drugs) + "_Predictions.csv"
             st.download_button(
-                label="📅 Download Predictions",
+                label="🗕️ Download Predictions",
                 data=full_data.to_csv(index=False).encode("utf-8"),
                 file_name=filename,
                 mime="text/csv"
@@ -173,7 +173,7 @@ with tabs[2]:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pickle.load(f)
+                    model = joblib.load(f)
                 pred = model.predict(gene_input)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[drug] = pred_labels
@@ -189,7 +189,7 @@ with tabs[2]:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pickle.load(f)
+                    model = joblib.load(f)
                 pred = model.predict(input_df)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[drug] = pred_labels
