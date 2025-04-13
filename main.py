@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 # -----------------------
 # Config
 # -----------------------
-st.set_page_config(page_title="🧠 MultiDrugIntel", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="💊 MultiDrugIntel", page_icon="🧪", layout="wide")
 
 # -----------------------
 # Logo
@@ -21,7 +21,7 @@ st.image("Image.png", width=100)
 # -----------------------
 # Title & Tabs
 # -----------------------
-st.title("🧠 MultiDrugIntel - Multi-Drug Resistance Predictor")
+st.title("💊 MultiDrugIntel - Multi-Drug Resistance Predictor")
 tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
 
 # -----------------------
@@ -83,13 +83,11 @@ with tabs[1]:
 
     selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
-    # Convert drug_ic50_data[selected_drug] from dict to DataFrame
     drug_dict = drug_ic50_data.get(selected_drug, {})
     if isinstance(drug_dict, dict):
         data = pd.DataFrame(list(drug_dict.items()), columns=["CELL_LINE_NAME", "LN_IC50"])
 
-        # Optional: binarize IC50 values to create a Label
-        threshold = data["LN_IC50"].median()  # or use any biological threshold
+        threshold = data["LN_IC50"].median()
         data["Label"] = data["LN_IC50"].apply(lambda x: "Resistant" if x > threshold else "Sensitive")
 
         fig, ax = plt.subplots(1, 2, figsize=(16, 5))
@@ -105,7 +103,6 @@ with tabs[1]:
     else:
         st.warning("⚠️ No valid IC50 data available for this drug.")
 
-
 # -----------------------
 # 🔬 Predict Tab
 # -----------------------
@@ -118,7 +115,7 @@ with tabs[2]:
         "Mode 3: Manual input"
     ])
 
-    selected_drugs = st.multiselect("🍺 Select Drug(s) to Predict", list(drug_name_map.keys()))
+    selected_drugs = st.multiselect("💊 Select Drug(s) to Predict", list(drug_name_map.keys()))
 
     if mode == "Mode 1: Cell line + Expression":
         uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
@@ -171,24 +168,19 @@ with tabs[2]:
                 results[drug] = pred_labels
             st.write(pd.DataFrame(results))
 
-   elif mode == "Mode 3: Manual input":
-    st.write("✍️ Input gene expressions")
-    gene_input = {}
+    elif mode == "Mode 3: Manual input":
+        st.write("✍️ Input gene expressions")
+        gene_input = {}
+        for gene in feature_genes[:10]:
+            gene_input[gene] = st.number_input(f"{gene}", value=1.0)
+        input_df = pd.DataFrame([gene_input])
 
-    for gene in feature_genes[:10]:
-        gene_input[gene] = st.number_input(f"{gene}", value=1.0)
-
-    input_df = pd.DataFrame([gene_input])
-
-    if selected_drugs:
-        results = {}
-        for drug in selected_drugs:
-            with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                model = pl.load(f)
-            pred = model.predict(input_df)
-            results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
-        
-        st.subheader("🧪 Prediction Result")
-        st.write(pd.DataFrame(results, index=["Manual Input"]))
-
-
+        if selected_drugs:
+            results = {}
+            for drug in selected_drugs:
+                with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
+                    model = pl.load(f)
+                pred = model.predict(input_df)
+                results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
+            st.subheader("🧪 Prediction Result")
+            st.write(pd.DataFrame(results, index=["Manual Input"]))
