@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import pickle as pl
+import pickle
 import os
 import json
 import matplotlib.pyplot as plt
@@ -11,24 +11,35 @@ from sklearn.ensemble import RandomForestClassifier
 # -----------------------
 # Config
 # -----------------------
-st.set_page_config(page_title="💊 MultiDrugIntel", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="🧠 MultiDrugIntel", page_icon="🧪", layout="wide")
 
 # -----------------------
-# Logo
+# Sidebar
 # -----------------------
-st.image("Image.png", width=100)
+st.sidebar.image("Image.png", width=120)
+st.sidebar.title("🧬 MultiDrugIntel")
+st.sidebar.markdown("""
+**A ML-powered app to predict drug resistance in breast cancer.**
+
+📌 Modes:
+- Upload gene expression data
+- Manual gene entry
+
+📊 Visualize IC50 profiles
+🔬 Predict resistance for 19 drugs
+""")
 
 # -----------------------
 # Title & Tabs
 # -----------------------
-st.title("💊 MultiDrugIntel - Multi-Drug Resistance Predictor")
+st.title("🧠 MultiDrugIntel - Multi-Drug Resistance Predictor")
 tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
 
 # -----------------------
 # Load required files
 # -----------------------
 with open("feature_names.pkl", "rb") as f:
-    feature_genes = pl.load(f)
+    feature_genes = pickle.load(f)
 
 with open("drug_ic50_data.json", "r") as f:
     drug_ic50_data = json.load(f)
@@ -115,7 +126,7 @@ with tabs[2]:
         "Mode 3: Manual input"
     ])
 
-    selected_drugs = st.multiselect("💊 Select Drug(s) to Predict", list(drug_name_map.keys()))
+    selected_drugs = st.multiselect("🍺 Select Drug(s) to Predict", list(drug_name_map.keys()))
 
     if mode == "Mode 1: Cell line + Expression":
         uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
@@ -135,7 +146,7 @@ with tabs[2]:
 
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pl.load(f)
+                    model = pickle.load(f)
                 pred = model.predict(gene_input)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[f"{drug}_Response"] = pred_labels
@@ -162,7 +173,7 @@ with tabs[2]:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pl.load(f)
+                    model = pickle.load(f)
                 pred = model.predict(gene_input)
                 pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                 results[drug] = pred_labels
@@ -174,13 +185,11 @@ with tabs[2]:
         for gene in feature_genes[:10]:
             gene_input[gene] = st.number_input(f"{gene}", value=1.0)
         input_df = pd.DataFrame([gene_input])
-
         if selected_drugs:
             results = {}
             for drug in selected_drugs:
                 with open(os.path.join("models", drug_name_map[drug]), "rb") as f:
-                    model = pl.load(f)
+                    model = pickle.load(f)
                 pred = model.predict(input_df)
                 results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
-            st.subheader("🧪 Prediction Result")
-            st.write(pd.DataFrame(results, index=["Manual Input"]))
+            st.write(results)
