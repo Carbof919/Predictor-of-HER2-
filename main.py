@@ -127,7 +127,7 @@ with tabs[2]:
         "Mode 3: Manual input"
     ])
 
-    selected_drugs = st.multiselect("🍺 Select Drug(s) to Predict", list(drug_name_map.keys()))
+    selected_drugs = st.multiselect("💊 Select Drug(s) to Predict", list(drug_name_map.keys()))
 
     def load_model(drug):
         try:
