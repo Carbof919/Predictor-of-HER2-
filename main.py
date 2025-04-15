@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from joblib import load  # Use joblib for model loading
 
+from sklearn.ensemble import RandomForestClassifier
+
 # -----------------------
 # Config
 # -----------------------
@@ -157,54 +159,73 @@ with tabs[2]:
 
     if mode == "Mode 1: Cell line + Expression":
         uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
-        if uploaded_file and selected_drugs:
+        if uploaded_file:
             user_data = pd.read_csv(uploaded_file, index_col=0)
-            gene_input = user_data.copy()
+            st.write("📄 Uploaded Data Preview:")
+            st.dataframe(user_data.head())
 
-            available_genes = [g for g in feature_genes if g in gene_input.columns]
-            missing_genes = [g for g in feature_genes if g not in gene_input.columns]
-            if missing_genes:
-                st.warning(f"⚠️ Missing genes: {missing_genes[:5]}... ({len(missing_genes)} total)")
-            gene_input = gene_input[available_genes]
+            if selected_drugs:
+                gene_input = user_data.copy()
+                available_genes = [g for g in feature_genes if g in gene_input.columns]
+                missing_genes = [g for g in feature_genes if g not in gene_input.columns]
+                if missing_genes:
+                    st.warning(f"⚠️ Missing genes: {missing_genes[:5]}... ({len(missing_genes)} total)")
+                gene_input = gene_input[available_genes]
 
-            results = pd.DataFrame(index=user_data.index)
-            results["Cell Line"] = results.index
+                results = pd.DataFrame(index=user_data.index)
+                results["Cell Line"] = results.index
 
-            for drug in selected_drugs:
-                model = load_model(drug)
-                if model:
-                    pred = model.predict(gene_input)
-                    pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-                    results[f"{drug}_Response"] = pred_labels
+                for drug in selected_drugs:
+                    model = load_model(drug)
+                    if model:
+                        pred = model.predict(gene_input)
+                        pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                        results[f"{drug}_Response"] = pred_labels
 
-            full_data = user_data.copy()
-            full_data.insert(0, "Cell Line", full_data.index)
-            for drug in selected_drugs:
-                if f"{drug}_Response" in results.columns:
-                    full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
+                full_data = user_data.copy()
+                full_data.insert(0, "Cell Line", full_data.index)
+                for drug in selected_drugs:
+                    if f"{drug}_Response" in results.columns:
+                        full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
 
-            st.write(full_data)
+                st.write("📋 Prediction Results:")
+                st.dataframe(full_data)
 
-            filename = "_".join(selected_drugs) + "_Predictions.csv"
-            st.download_button(
-                label="📅 Download Predictions",
-                data=full_data.to_csv(index=False).encode("utf-8"),
-                file_name=filename,
-                mime="text/csv"
-            )
+                filename = "_".join(selected_drugs) + "_Predictions.csv"
+                st.download_button(
+                    label="📥 Download Predictions",
+                    data=full_data.to_csv(index=False).encode("utf-8"),
+                    file_name=filename,
+                    mime="text/csv"
+                )
 
     elif mode == "Mode 2: Expression only":
         exp_file = st.file_uploader("📁 Upload CSV with expression values only", type=["csv"])
-        if exp_file and selected_drugs:
+        if exp_file:
             gene_input = pd.read_csv(exp_file)
-            results = {}
-            for drug in selected_drugs:
-                model = load_model(drug)
-                if model:
-                    pred = model.predict(gene_input)
-                    pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-                    results[drug] = pred_labels
-            st.write(pd.DataFrame(results))
+            st.write("📄 Uploaded Data Preview:")
+            st.dataframe(gene_input.head())
+
+            if selected_drugs:
+                results = {}
+                for drug in selected_drugs:
+                    model = load_model(drug)
+                    if model:
+                        pred = model.predict(gene_input)
+                        pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
+                        results[drug] = pred_labels
+
+                result_df = pd.DataFrame(results)
+                st.write("📋 Prediction Results:")
+                st.dataframe(result_df)
+
+                filename = "_".join(selected_drugs) + "_Predictions.csv"
+                st.download_button(
+                    label="📥 Download Predictions",
+                    data=result_df.to_csv(index=False).encode("utf-8"),
+                    file_name=filename,
+                    mime="text/csv"
+                )
 
     elif mode == "Mode 3: Manual input":
         st.write("✍️ Input gene expressions")
@@ -212,6 +233,7 @@ with tabs[2]:
         for gene in feature_genes:
             gene_input[gene] = st.number_input(f"{gene}", value=1.0)
         input_df = pd.DataFrame([gene_input])
+
         if selected_drugs:
             results = {}
             for drug in selected_drugs:
@@ -219,5 +241,15 @@ with tabs[2]:
                 if model:
                     pred = model.predict(input_df)
                     results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
+
+            result_df = pd.DataFrame([results])
             st.write("📋 Prediction Results:")
-            st.write(pd.DataFrame([results]))
+            st.dataframe(result_df)
+
+            filename = "_".join(selected_drugs) + "_ManualInput_Predictions.csv"
+            st.download_button(
+                label="📥 Download Predictions",
+                data=result_df.to_csv(index=False).encode("utf-8"),
+                file_name=filename,
+                mime="text/csv"
+            )
