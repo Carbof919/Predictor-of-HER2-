@@ -23,10 +23,10 @@ st.sidebar.markdown("""
 **A ML-powered app to predict drug resistance in breast cancer.**
 
 📌 Modes:
-- Upload gene expression data
-- Manual gene entry
+- Upload gene expression data  
+- Manual gene entry  
 
-📊 Visualize IC50 profiles
+📊 Visualize IC50 profiles  
 🔬 Predict resistance for 19 drugs
 """)
 
@@ -34,7 +34,7 @@ st.sidebar.markdown("""
 # Title & Tabs
 # -----------------------
 st.title("🧠 MultiDrugIntel - Multi-Drug Resistance Predictor")
-tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict"])
+tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict", "🆘 Help"])
 
 # -----------------------
 # Load required files
@@ -78,10 +78,8 @@ with tabs[0]:
     st.markdown("""
     **Choose one of the modes below:**
 
-    🔹 **Mode 1:** Upload gene expression CSV with cell line names + gene symbols.
-
-    🔹 **Mode 2:** Upload gene expression CSV with gene symbols only (no cell lines).
-
+    🔹 **Mode 1:** Upload gene expression CSV with cell line names + gene symbols.  
+    🔹 **Mode 2:** Upload gene expression CSV with gene symbols only (no cell lines).  
     🔹 **Mode 3:** Manually input gene names + expression values.
 
     ⚠️ Ensure gene names match those in the trained models.
@@ -111,15 +109,17 @@ with tabs[0]:
 # -----------------------
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
-    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
+    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
     drug_dict = drug_ic50_data.get(selected_drug, {})
+
     if isinstance(drug_dict, dict):
         data = pd.DataFrame(list(drug_dict.items()), columns=["CELL_LINE_NAME", "LN_IC50"])
         threshold = data["LN_IC50"].median()
         data["Label"] = data["LN_IC50"].apply(lambda x: "Resistant" if x > threshold else "Sensitive")
 
         fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+
         sns.countplot(data=data, x="Label", ax=ax[0], palette="Set2")
         ax[0].set_title(f"Resistance Distribution for {selected_drug}")
         ax[0].set_ylabel("Cell Line Count")
@@ -131,12 +131,10 @@ with tabs[1]:
 
         st.pyplot(fig)
 
-        # Download graph
         graph_path = f"{selected_drug}_ic50_plot.png"
         fig.savefig(graph_path, bbox_inches="tight")
         with open(graph_path, "rb") as file:
             st.download_button("📥 Download Plot (PNG)", file.read(), file_name=graph_path, mime="image/png")
-
     else:
         st.warning("⚠️ No valid IC50 data available for this drug.")
 
@@ -245,3 +243,30 @@ with tabs[2]:
                     results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
             st.write("📋 **Prediction Result:**")
             st.dataframe(pd.DataFrame([results]))
+
+# -----------------------
+# 🆘 Help Tab
+# -----------------------
+with tabs[3]:
+    st.subheader("🆘 Help & Documentation")
+    st.markdown("""
+    **MultiDrugIntel** is a web-based tool that uses machine learning to predict drug resistance in HER2+ breast cancer.
+
+    ### 💡 Key Features
+    - Upload expression data with or without cell line names
+    - Predict resistance for multiple drugs
+    - View IC50 distribution and export graphs
+    - Manual gene input mode
+
+    ### 📋 Supported Input Modes
+    - Mode 1: Expression with cell lines
+    - Mode 2: Expression without cell lines
+    - Mode 3: Manual input for testing specific gene profiles
+
+    ### 📞 Contact Developer
+    *Name:* _Your Name Here_  
+    *Email:* _your.email@example.com_  
+    *GitHub:* _https://github.com/yourusername_
+
+    > _Replace this with your contact info or project page once you're ready!_
+    """)
