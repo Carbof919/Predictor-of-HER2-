@@ -6,7 +6,6 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 from joblib import load
-
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 
@@ -112,7 +111,6 @@ with tabs[0]:
 # -----------------------
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
-
     selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
 
     drug_dict = drug_ic50_data.get(selected_drug, {})
@@ -124,11 +122,21 @@ with tabs[1]:
         fig, ax = plt.subplots(1, 2, figsize=(16, 5))
         sns.countplot(data=data, x="Label", ax=ax[0], palette="Set2")
         ax[0].set_title(f"Resistance Distribution for {selected_drug}")
+        ax[0].set_ylabel("Cell Line Count")
 
-        sns.barplot(data=data, x="CELL_LINE_NAME", y="LN_IC50", ax=ax[1], palette="viridis")
+        sorted_data = data.sort_values("LN_IC50", ascending=False)
+        sns.barplot(data=sorted_data, x="CELL_LINE_NAME", y="LN_IC50", ax=ax[1], palette="viridis")
         ax[1].set_title(f"Log(IC50) values for {selected_drug}")
         ax[1].tick_params(axis='x', rotation=90)
+
         st.pyplot(fig)
+
+        # Download graph
+        graph_path = f"{selected_drug}_ic50_plot.png"
+        fig.savefig(graph_path, bbox_inches="tight")
+        with open(graph_path, "rb") as file:
+            st.download_button("📥 Download Plot (PNG)", file.read(), file_name=graph_path, mime="image/png")
+
     else:
         st.warning("⚠️ No valid IC50 data available for this drug.")
 
@@ -162,8 +170,10 @@ with tabs[2]:
         uploaded_file = st.file_uploader("📁 Upload your gene expression CSV file", type=["csv"])
         if uploaded_file and selected_drugs:
             user_data = pd.read_csv(uploaded_file, index_col=0)
-            gene_input = user_data.copy()
+            st.write("📄 **Uploaded Data:**")
+            st.dataframe(user_data)
 
+            gene_input = user_data.copy()
             results = pd.DataFrame(index=user_data.index)
             results["Cell Line"] = results.index
 
@@ -180,11 +190,12 @@ with tabs[2]:
             for drug in selected_drugs:
                 full_data[f"{drug}_Response"] = results[f"{drug}_Response"].values
 
-            st.write(full_data)
+            st.write("🧪 **Prediction Results (Merged with Input):**")
+            st.dataframe(full_data)
 
             filename = "_".join(selected_drugs) + "_Predictions.csv"
             st.download_button(
-                label="📅 Download Predictions",
+                label="📥 Download Merged Results (CSV)",
                 data=full_data.to_csv(index=False).encode("utf-8"),
                 file_name=filename,
                 mime="text/csv"
@@ -194,29 +205,43 @@ with tabs[2]:
         exp_file = st.file_uploader("📁 Upload CSV with expression values only", type=["csv"])
         if exp_file and selected_drugs:
             gene_input = pd.read_csv(exp_file)
+            st.write("📄 **Uploaded Expression Data:**")
+            st.dataframe(gene_input)
+
             results = {}
             for drug in selected_drugs:
                 model = load_model(drug)
                 if model:
-                    gene_input_aligned = align_features(gene_input.copy(), model)
-                    pred = model.predict(gene_input_aligned)
+                    aligned = align_features(gene_input.copy(), model)
+                    pred = model.predict(aligned)
                     pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                     results[drug] = pred_labels
-            st.write(pd.DataFrame(results))
+
+            df = pd.DataFrame(results)
+            st.write("📋 **Prediction Results:**")
+            st.dataframe(df)
+
+            st.download_button(
+                label="📥 Download Results (CSV)",
+                data=df.to_csv(index=False).encode("utf-8"),
+                file_name="ExpressionOnly_Predictions.csv",
+                mime="text/csv"
+            )
 
     elif mode == "Mode 3: Manual input":
         st.write("✍️ Input gene expressions")
         gene_input = {}
         for gene in feature_genes[:10]:
             gene_input[gene] = st.number_input(f"{gene}", value=1.0)
+
         input_df = pd.DataFrame([gene_input])
         if selected_drugs:
             results = {}
             for drug in selected_drugs:
                 model = load_model(drug)
                 if model:
-                    input_df_aligned = align_features(input_df.copy(), model)
-                    pred = model.predict(input_df_aligned)
+                    aligned = align_features(input_df.copy(), model)
+                    pred = model.predict(aligned)
                     results[drug] = "Resistant" if pred[0] == 0 else "Sensitive"
-            st.write("📋 Prediction Results:")
-            st.write(pd.DataFrame([results]))
+            st.write("📋 **Prediction Result:**")
+            st.dataframe(pd.DataFrame([results]))
