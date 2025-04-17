@@ -178,8 +178,8 @@ with tabs[2]:
             for drug in selected_drugs:
                 model = load_model(drug)
                 if model:
-                    gene_input_aligned = align_features(gene_input.copy(), model)
-                    pred = model.predict(gene_input_aligned)
+                    aligned = align_features(gene_input.copy(), model)
+                    pred = model.predict(aligned)
                     pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
                     results[f"{drug}_Response"] = pred_labels
 
@@ -206,23 +206,23 @@ with tabs[2]:
             st.write("📄 **Uploaded Expression Data:**")
             st.dataframe(gene_input)
 
-            results = {}
+            merged_df = gene_input.copy()
             for drug in selected_drugs:
                 model = load_model(drug)
                 if model:
                     aligned = align_features(gene_input.copy(), model)
                     pred = model.predict(aligned)
                     pred_labels = ["Resistant" if p == 0 else "Sensitive" for p in pred]
-                    results[drug] = pred_labels
+                    merged_df[f"{drug}_Response"] = pred_labels
 
-            df = pd.DataFrame(results)
-            st.write("📋 **Prediction Results:**")
-            st.dataframe(df)
+            st.write("📋 **Prediction Results (Merged with Input):**")
+            st.dataframe(merged_df)
 
+            filename = "_".join(selected_drugs) + "_Predictions.csv"
             st.download_button(
-                label="📥 Download Results (CSV)",
-                data=df.to_csv(index=False).encode("utf-8"),
-                file_name="ExpressionOnly_Predictions.csv",
+                label="📥 Download Merged Results (CSV)",
+                data=merged_df.to_csv(index=False).encode("utf-8"),
+                file_name=filename,
                 mime="text/csv"
             )
 
