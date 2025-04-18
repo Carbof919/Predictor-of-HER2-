@@ -42,8 +42,8 @@ tabs = st.tabs(["🏠 Home", "📊 Visualize", "🔬 Predict", "🆘 Help"])
 with open("feature_names.pkl", "rb") as f:
     feature_genes = pickle.load(f)
 
-with open("drug_ic50_data.json", "r") as f:
-    drug_ic50_data = json.load(f)
+with open("drug_ic50_data_.json", "r") as f:
+    drug_ic50_data_ = json.load(f)
 
 # -----------------------
 # Drug model map
@@ -111,8 +111,8 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("📊 Drug Sensitivity and IC50 Visualization")
 
-    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data.keys()))
-    drug_dict = drug_ic50_data.get(selected_drug, {})
+    selected_drug = st.selectbox("💊 Choose a drug to visualize", list(drug_ic50_data_.keys()))
+    drug_dict = drug_ic50_data_.get(selected_drug, {})
 
     if isinstance(drug_dict, dict):
         data = pd.DataFrame(list(drug_dict.items()), columns=["CELL_LINE_NAME", "LN_IC50"])
