@@ -52,6 +52,7 @@ drug_name_map = {
     "AST-1306": "AST-1306_model.pkl",
     "Axitinib": "Axitinib_model.pkl",
     "AZD4547": "AZD4547_model.pkl",
+    "Alectinib": "Alectinib_model.pkl",
     "Bicalutamide": "Bicalutamide_model.pkl",
     "BMS-754807": "BMS-754807_model.pkl",
     "Cetuximab": "Cetuximab_model.pkl",
